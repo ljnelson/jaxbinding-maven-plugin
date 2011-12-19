@@ -1,0 +1,12 @@
+@if{isdef license && license != empty}@{license}
+@end{}
+
+@XmlJavaTypeAdapters(
+@foreach{binding : bindings.entrySet()}
+  @XmlJavaTypeAdapter(type = @{binding.key}.class, value = @{binding.value}.class)
+@end{','}
+)
+
+package @{interfacePackageName};
+
+import javax.xml.bind.annotation.adapters.*;

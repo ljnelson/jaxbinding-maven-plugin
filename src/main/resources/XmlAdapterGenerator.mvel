@@ -1,0 +1,64 @@
+@if{license != empty}@{license}
+@end{}package @{adapterPackage};
+
+import javax.annotation.Generated;
+
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter; // for javadoc only
+
+@if{interfacePackage != adapterPackage}import @{interfaceName};
+@end{}@if{classPackage != adapterPackage}import @{className};
+@end{}/**
+ * An {@link XmlAdapter} that allows JAXB to work properly with {@link 
+ * @{interfaceSimpleName}} instances.
+ *
+ * @see XmlAdapter
+ *
+ * @see XmlJavaTypeAdapter
+ */
+@Generated(
+  value = "@{generator}", 
+  date = "@{generationTimestamp}"@if{isdef generationComment && generationComment != empty},
+  comments = "@{generationComment}"@end{}
+)
+public final class @{interfaceSimpleName}To@{classSimpleName}Adapter extends XmlAdapter<@{classSimpleName}, @{interfaceSimpleName}> {
+
+  /**
+   * Creates a new {@link @{interfaceSimpleName}To@{classSimpleName}Adapter}.
+   */  
+  public @{interfaceSimpleName}To@{classSimpleName}Adapter() {
+    super();
+  }
+
+  /**
+   * Marshals {@link @{interfaceSimpleName}} instances into {@link 
+   * @{classSimpleName}} instances by simply doing a blind cast.
+   *
+   * @param objectOfBoundType the {@link @{interfaceSimpleName}} instance to 
+   * marshal
+   *
+   * @return the {@code objectOfBoundType} parameter exactly as it was supplied
+   *
+   * @exception ClassCastException if the cast could not be performed
+   */
+  @Override
+  public final @{classSimpleName} marshal(final @{interfaceSimpleName} objectOfBoundType) {
+    return (@{classSimpleName})objectOfBoundType;
+  }
+
+  /**
+   * Unmarshals {@link @{classSimpleName}} instances into {@link 
+   * @{interfaceSimpleName}} instances by simply returning the 
+   * supplied {@code objectOfValueType} parameter.
+   *
+   * @param objectOfValueType the {@link @{classSimpleName}} instance to 
+   * unmarshal
+   *
+   * @return the {@code objectOfValueType} parameter exactly as it was supplied
+   */
+  @Override
+  public final @{interfaceSimpleName} unmarshal(final @{classSimpleName} objectOfValueType) {
+    return objectOfValueType;
+  }
+
+}
