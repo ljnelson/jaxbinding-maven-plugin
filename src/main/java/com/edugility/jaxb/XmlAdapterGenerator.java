@@ -59,12 +59,6 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
 
   private String license;
 
-  private String pkg;
-
-  private final String interfaceName;
-
-  private final String className;
-
   private String sourceFilenameTemplate;
 
   private String encoding;
@@ -75,20 +69,12 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
 
   private Date generationDate;
 
-  public XmlAdapterGenerator(final String interfaceName, final String className, final File directory) {
+  public XmlAdapterGenerator(final File directory) {
     super();
-    this.interfaceName = interfaceName;
-    this.className = className;
-    if (interfaceName == null) {
-      throw new IllegalArgumentException("interfaceName", new NullPointerException("interfaceName"));
-    }
-    if (className == null) {
-      throw new IllegalArgumentException("className", new NullPointerException("className"));
-    }
     this.setAdapterClassNameTemplate("%s.%sTo%sAdapter");
     this.setSourceFilenameTemplate("%s.java");
     this.setEncoding("UTF8");
-    this.setTemplateResourceName(String.format("%s.mvel", XmlAdapterGenerator.class.getSimpleName()));
+    this.setTemplateResourceName("XmlAdapterGenerator.mvel");
     this.setDirectory(directory);    
   }
 
@@ -111,47 +97,21 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     this.adapterClassNameTemplate = adapterClassNameTemplate;
   }
 
-  public final String getAdapterClassName() {
+  public final String getAdapterClassName(final String packageName, final String interfaceName, final String className) {
+    if (packageName == null) {
+      throw new IllegalArgumentException("packageName", new NullPointerException("packageName"));
+    }
+    if (interfaceName == null) {
+      throw new IllegalArgumentException("interfaceName", new NullPointerException("interfaceName"));
+    }
+    if (className == null) {
+      throw new IllegalArgumentException("className", new NullPointerException("className"));
+    }
     final String template = this.getAdapterClassNameTemplate();
     if (template == null) {
       throw new IllegalStateException("The adapterClassNameTemplate property was null");
     }
-    return String.format(template, this.getPackage(), this.getSimpleName(this.getInterfaceName()), this.getSimpleName(this.getClassName()));
-  }
-
-  public String getClassName() {
-    return this.className;
-  }
-
-  public String getInterfaceName() {
-    return this.interfaceName;
-  }
-
-  private final String getSimpleName(final String name) {
-    String returnValue = null;
-    if (name != null) {
-      final int lastDotIndex = name.lastIndexOf('.');
-      if (lastDotIndex < 0) {
-        returnValue = name;
-      } else {
-        assert name.length() > lastDotIndex + 1;
-        returnValue = name.substring(lastDotIndex + 1);
-      }
-    }
-    return returnValue;
-  }
-
-  private final String getPackage(final String name) {
-    String returnValue = null;
-    if (name != null) {
-      final int lastDotIndex = name.lastIndexOf('.');
-      if (lastDotIndex < 0) {
-        returnValue = "";
-      } else {
-        returnValue = name.substring(0, lastDotIndex);
-      }
-    }
-    return returnValue;
+    return String.format(template, packageName, this.getSimpleName(interfaceName), this.getSimpleName(className));
   }
 
   public final File getDirectory() {
@@ -178,6 +138,10 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     return this.sourceFilenameTemplate;
   }
 
+  /**
+   * Sets the {@link Formatter}-compliant template to use when
+   * generating the names of {@link XmlAdapter} source files.
+   */
   public void setSourceFilenameTemplate(final String template) {
     if (template == null) {
       throw new IllegalArgumentException("template", new NullPointerException("template"));
@@ -191,14 +155,6 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
 
   public void setLicense(final String license) {
     this.license = license;
-  }
-
-  public String getPackage() {
-    return this.pkg;
-  }
-
-  public void setPackage(final String pkg) {
-    this.pkg = pkg;
   }
 
   public String getEncoding() {
@@ -217,12 +173,13 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     this.comment = comment;
   }
 
-  public final File getSourceFile() {
+  public final File getSourceFile(final String adapterClassName) {
+    if (adapterClassName == null) {
+      throw new IllegalArgumentException("adapterClassName", new NullPointerException("adapterClassName"));
+    }
+
     String sft = this.getSourceFilenameTemplate();
     assert sft != null;
-
-    final String adapterClassName = this.getAdapterClassName();
-    assert adapterClassName != null;
 
     final String sourceFileName = String.format(sft, this.getSimpleName(adapterClassName));
 
@@ -230,21 +187,22 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     return sourceFile;
   }
 
-  public File generate() throws IOException {
+  public File generate(final String adapterPackage, final String interfaceName, final String className) throws IOException {
+    
+    final String adapterClassName = this.getAdapterClassName(adapterPackage, interfaceName, className);
+    if (adapterClassName == null) {
+      throw new IllegalStateException("The getAdapterClassName(String, String, String) method returned null");
+    }
+
     final File directory = this.getDirectory();
     assert directory != null;
 
-    String sourceFilenameTemplate = this.getSourceFilenameTemplate();
-    if (sourceFilenameTemplate == null) {
-      throw new IllegalStateException("The sourceFilenameTemplate property cannot be null");
-    }
-    
-    final File sourceFile = this.getSourceFile();
+    final File sourceFile = this.getSourceFile(adapterClassName);
     if (sourceFile == null) {
-      throw new IllegalStateException("The getSourceFile() method must not return null");
+      throw new IllegalStateException("The getSourceFile(String) method must not return null");
     }
 
-    final String source = this.getXmlAdapterSource();
+    final String source = this.getXmlAdapterSource(adapterPackage, interfaceName, className);
     assert source != null;
 
     FileOutputStream fos = new FileOutputStream(sourceFile);
@@ -273,19 +231,19 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     return sourceFile;
   }
 
-  private final String getXmlAdapterSource() {
+  private final String getXmlAdapterSource(String adapterPackage, final String interfaceName, final String className) throws IOException {
+
     final CompiledTemplate compiledTemplate = this.getCompiledTemplate();
     assert compiledTemplate != null;
     
     final Map<Object, Object> parameters = new HashMap<Object, Object>(17);
     parameters.put("license", this.getLicense());
-    parameters.put("adapterPackage", this.getPackage());
-    final String interfaceName = this.getInterfaceName();
+    parameters.put("adapterPackage", adapterPackage);
+
     parameters.put("interfaceName", interfaceName);
     parameters.put("interfacePackage", this.getPackage(interfaceName));
     parameters.put("interfaceSimpleName", this.getSimpleName(interfaceName));
 
-    final String className = this.getClassName();
     parameters.put("className", className);
     parameters.put("classPackage", this.getPackage(className));
     parameters.put("classSimpleName", this.getSimpleName(className));

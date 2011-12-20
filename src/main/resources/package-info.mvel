@@ -6,7 +6,7 @@
   @XmlJavaTypeAdapter(type = @{binding.key}.class, value = @{binding.value}.class)
 @end{','}
 )
-
 package @{interfacePackageName};
 
-import javax.xml.bind.annotation.adapters.*;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;

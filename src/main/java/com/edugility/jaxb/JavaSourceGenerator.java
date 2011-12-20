@@ -90,7 +90,7 @@ public abstract class JavaSourceGenerator {
     return templateURL;
   }
 
-  public String getTemplate() {
+  public String getTemplate() throws IOException {
     if (this.template == null) {
       final URL templateURL = this.getTemplateResource();
       if (templateURL == null) {
@@ -111,9 +111,6 @@ public abstract class JavaSourceGenerator {
           }
           this.template = sb.toString();
         }
-      } catch (final IOException boom) {
-        // TODO: log
-        template = null;
       } finally {
         if (stream != null) {
           try {
@@ -142,7 +139,7 @@ public abstract class JavaSourceGenerator {
     }
   }
 
-  protected CompiledTemplate getCompiledTemplate() {
+  protected CompiledTemplate getCompiledTemplate() throws IOException {
     if (this.compiledTemplate == null) {
       final String template = this.getTemplate();
       if (template != null) {
@@ -151,5 +148,34 @@ public abstract class JavaSourceGenerator {
     }
     return this.compiledTemplate;
   }
+
+  protected static final String getSimpleName(final String name) {
+    String returnValue = null;
+    if (name != null) {
+      final int lastDotIndex = name.lastIndexOf('.');
+      if (lastDotIndex < 0) {
+        returnValue = name;
+      } else {
+        assert name.length() > lastDotIndex + 1;
+        returnValue = name.substring(lastDotIndex + 1);
+      }
+    }
+    return returnValue;
+  }
+
+  protected static final String getPackage(final String name) {
+    String returnValue = null;
+    if (name != null) {
+      final int lastDotIndex = name.lastIndexOf('.');
+      if (lastDotIndex < 0) {
+        returnValue = "";
+      } else {
+        returnValue = name.substring(0, lastDotIndex);
+      }
+    }
+    return returnValue;
+  }
+
+
 
 }

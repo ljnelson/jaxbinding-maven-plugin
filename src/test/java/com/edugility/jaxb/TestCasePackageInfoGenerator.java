@@ -55,16 +55,22 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
   @Before
   public void setUp() throws Exception {
     final File adapterDirectory = this.createScratchDirectory();
-    final File packageDirectory = new File(adapterDirectory, "com/edugility/jaxb");
-    if (!packageDirectory.exists()) {
-      packageDirectory.mkdirs();
+
+    final File packageDirectoryRoot = new File(adapterDirectory, "com/edugility/jaxb");
+    if (!packageDirectoryRoot.exists()) {
+      assertTrue(packageDirectoryRoot.mkdirs());
     }
-    packageDirectory.deleteOnExit();
-    this.generator = new PackageInfoGenerator("com.edugility.jaxb", packageDirectory);
+    packageDirectoryRoot.deleteOnExit();
+
+    this.generator = new PackageInfoGenerator("com.edugility.jaxb", packageDirectoryRoot);
     this.generator.setAdapterDirectory(adapterDirectory);
+
+    final XmlAdapterGenerator xmlAdapterGenerator = new XmlAdapterGenerator(adapterDirectory);
+    this.generator.setXmlAdapterGenerator(xmlAdapterGenerator);
 
     final URL myLocation = this.getClass().getProtectionDomain().getCodeSource().getLocation();
     assertNotNull(myLocation);
+
     this.generator.addURL(myLocation);
 
   }
@@ -80,7 +86,7 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
 
   @Test
   public void testAll() throws Exception {
-    this.generator.processJAXBAnnotatedClasses();
+    this.generator.generate();
     this.compile(this.generator.getDirectory(), this.generator.getAdapterDirectory());
   }
 

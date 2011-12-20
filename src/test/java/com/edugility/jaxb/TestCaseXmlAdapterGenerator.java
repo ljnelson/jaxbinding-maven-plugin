@@ -68,15 +68,14 @@ public class TestCaseXmlAdapterGenerator extends AbstractSourceGeneratorTestCase
   @Before
   public void setUp() throws Exception {
     // Get our scratch directory where we will output an appropriate XmlAdapter.
-    this.generator = new XmlAdapterGenerator("com.edugility.jaxb.Person", "com.edugility.jaxb.PersonImplementation", this.createScratchDirectory());
-    generator.setPackage("com.edugility.jaxb");
+    this.generator = new XmlAdapterGenerator(this.createScratchDirectory());
     generator.setLicense("/* License */");
     generator.setGenerationComment("Testing");
   }
 
   @Test
   public void testGenerate() throws Exception {
-    this.generator.generate();
+    this.generator.generate("com.edugility.jaxb", "com.edugility.jaxb.Person", "com.edugility.jaxb.PersonImplementation");
     this.compile(this.getDirectory());
   }
 

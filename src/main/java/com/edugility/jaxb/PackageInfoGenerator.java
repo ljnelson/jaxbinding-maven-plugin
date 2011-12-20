@@ -74,54 +74,22 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
 
   private File directory;
 
-  private String license;
-
-  private String encoding;
-
-  private String sourceFilenameTemplate;
+  private XmlAdapterGenerator generator;
 
   private final List<URL> urls;
 
   private final String interfacePackage;
 
-  public PackageInfoGenerator(final String interfacePackage, final File packageDirectory) {
+  public PackageInfoGenerator(final String interfacePackage, final File packageDirectoryRoot) {
     super();
     this.interfacePackage = interfacePackage;
     if (interfacePackage == null) {
       throw new IllegalArgumentException("interfacePackage", new NullPointerException("interfacePackage"));
     }
-    this.setDirectory(packageDirectory);
+    this.setDirectory(packageDirectoryRoot);
     this.setTemplateResourceName("package-info.mvel");
     this.urls = new ArrayList<URL>(11);
-    this.setSourceFilenameTemplate("%s.java");
     this.setEncoding("UTF8");
-  }
-
-  public String getEncoding() {
-    return this.encoding;
-  }
-
-  public void setEncoding(final String encoding) {
-    this.encoding = encoding;
-  }
-
-  public String getSourceFilenameTemplate() {
-    return this.sourceFilenameTemplate;
-  }
-
-  public void setSourceFilenameTemplate(final String template) {
-    if (template == null) {
-      throw new IllegalArgumentException("template", new NullPointerException("template"));
-    }
-    this.sourceFilenameTemplate = template;
-  }
-
-  public String getLicense() {
-    return this.license;
-  }
-
-  public void setLicense(final String license) {
-    this.license = license;
   }
 
   public File getAdapterDirectory() {
@@ -132,8 +100,9 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     this.adapterDirectory = directory;
   }
 
-  public void processJAXBAnnotatedClasses() throws IOException {
+  public void generate() throws IOException {
     final SortedMap<String, String> adapterInfo = new TreeMap<String, String>();
+
     final AnnotationDB db = new AnnotationDB() {
         
         private static final long serialVersionUID = 1L;
@@ -206,7 +175,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
                       } catch (final IOException wrapMe) {
                         throw new IllegalStateException(wrapMe);
                       }
-                      adapterInfo.put(interfaceName, generator.getAdapterClassName());
+                      adapterInfo.put(interfaceName, generator.getAdapterClassName(interfacePackage, interfaceName, this.cf.getName()));
                     }
                   }
                 }
@@ -257,7 +226,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     return this.interfacePackage;
   }
 
-  public void generatePackageInfo(final Map<String, String> entries) throws IOException {
+  private final void generatePackageInfo(final Map<String, String> entries) throws IOException {
     final CompiledTemplate compiledTemplate = this.getCompiledTemplate();
     assert compiledTemplate != null;
 
@@ -335,35 +304,29 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
   }
 
   private final XmlAdapterGenerator generateXMLAdapter(final String interfaceName, final ClassFile cf) throws IOException {
-    XmlAdapterGenerator xmlAdapterGenerator = null;
-    if (interfaceName != null && cf != null) {
-      xmlAdapterGenerator = this.createXmlAdapterGenerator(interfaceName, cf.getName());
-      if (xmlAdapterGenerator == null) {
-        xmlAdapterGenerator = new XmlAdapterGenerator(interfaceName, cf.getName(), this.getAdapterDirectory());
-      }
-      assert xmlAdapterGenerator != null;
-      xmlAdapterGenerator.setDirectory(this.getAdapterDirectory());
-      xmlAdapterGenerator.setLicense(this.getLicense());
-      xmlAdapterGenerator.setEncoding(this.getEncoding());
-      xmlAdapterGenerator.setSourceFilenameTemplate(this.getSourceFilenameTemplate());
-      xmlAdapterGenerator.generate();
+    if (interfaceName == null) {
+      throw new IllegalArgumentException("interfaceName", new NullPointerException("interfaceName"));
     }
+    if (cf == null) {
+      throw new IllegalArgumentException("cf", new NullPointerException("cf"));
+    }
+
+    XmlAdapterGenerator xmlAdapterGenerator = this.getXmlAdapterGenerator();
+    if (xmlAdapterGenerator == null) {
+      throw new IllegalStateException("Please install an XmlAdapterGenerator");
+    }
+
+    xmlAdapterGenerator.generate(getPackage(interfaceName), interfaceName, cf.getName());
+
     return xmlAdapterGenerator;
   }
 
-  protected XmlAdapterGenerator createXmlAdapterGenerator(final String interfaceName, final String className) {
-    final XmlAdapterGenerator generator = new XmlAdapterGenerator(interfaceName, className, this.getAdapterDirectory());
-    if (interfaceName != null) {
-      final String packageName;
-      final int lastDotIndex = interfaceName.lastIndexOf('.');
-      if (lastDotIndex < 0) {
-        packageName = "";
-      } else {
-        packageName = interfaceName.substring(0, lastDotIndex);
-      }
-      generator.setPackage(packageName);
-    }
-    return generator;
+  public XmlAdapterGenerator getXmlAdapterGenerator() {
+    return this.generator;
+  }
+
+  public void setXmlAdapterGenerator(final XmlAdapterGenerator generator) {
+    this.generator = generator;
   }
 
 }

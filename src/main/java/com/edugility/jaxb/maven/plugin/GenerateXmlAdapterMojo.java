@@ -27,6 +27,8 @@
  */
 package com.edugility.jaxb.maven.plugin;
 
+import java.util.List;
+
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -34,14 +36,40 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
 
 /**
- * @goal munge
+ * @goal generate-xml-adapter
  * @requiresDependencyResolution test
  */
-public class AbstractJAXBMojo extends AbstractMojo {
+public class GenerateXmlAdapterMojo extends AbstractJAXBMojo {
+
+  /**
+   * @parameter default-value="${project.build.sourceEncoding}" expression="${jaxb.encoding}"
+   */
+  private String encoding;
+
+  /**
+   * @parameter
+   */
+  private String templateResourceName;
+
+  /**
+   * @parameter
+   */
+  private String license;
+
+  /**
+   * @parameter expression="${jaxb.adapterPackage}"
+   */
+  private String adapterPackage;
+
+  /**
+   * @parameter
+   */
+  private List<String> interfaceNames;
 
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
-
+    final Log log = this.getLog();
+    
   }
 
 }
