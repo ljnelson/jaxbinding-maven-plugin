@@ -57,28 +57,17 @@ import org.mvel2.templates.TemplateRuntime;
 
 public class PackageInfoGenerator extends JavaSourceGenerator {
 
-    /*
-
-      Using scannotation, look for all classes that have some JAXB
-      annotations on them.
-
-      Extract the interfaces they implement that are from designated
-      packages.
-
-      Use an XMLAdapterGenerator to generate XMLAdapters of the proper
-      types in the designated directory.
-      
-    */
-
   private File adapterDirectory;
 
-  private File directory;
+  private File packageDirectoryRoot;
 
   private XmlAdapterGenerator generator;
 
   private final List<URL> urls;
 
   private final String interfacePackage;
+
+  private Set<String> packagesToIgnore;
 
   public PackageInfoGenerator(final String interfacePackage, final File packageDirectoryRoot) {
     super();
@@ -90,6 +79,14 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     this.setTemplateResourceName("package-info.mvel");
     this.urls = new ArrayList<URL>(11);
     this.setEncoding("UTF8");
+  }
+
+  public Set<String> getPackagesToIgnore() {
+    return this.packagesToIgnore;
+  }
+
+  public void setPackagesToIgnore(final Set<String> packagesToIgnore) {
+    this.packagesToIgnore = packagesToIgnore;
   }
 
   public File getAdapterDirectory() {
@@ -109,6 +106,10 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
 
         private ClassFile cf;
 
+        /**
+         * Overrides the superclass' implementation to track the
+         * {@link ClassFile} being scanned.
+         */
         @Override
         protected final void scanClass(final ClassFile cf) {
           // Overrides this method to keep track of the ClassFile being scanned.
@@ -121,6 +122,10 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
           this.cf = null;
         }
 
+        /**
+         * Overrides the superclass' implementation to track the
+         * {@link ClassFile} being scanned.
+         */
         @Override
         protected final void scanMethods(final ClassFile cf) {
           // Overrides this method to keep track of the ClassFile being scanned.
@@ -133,6 +138,10 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
           this.cf = null;
         }
 
+        /**
+         * Overrides the superclass' implementation to track the
+         * {@link ClassFile} being scanned.
+         */
         @Override
         protected final void scanFields(final ClassFile cf) {
           // Overrides this method to keep track of the ClassFile being scanned.
@@ -145,6 +154,10 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
           this.cf = null;
         }
 
+        /**
+         * Overrides the superclass' implementation to track the
+         * {@link ClassFile} being scanned.
+         */
         @Override
         protected final void populate(final Annotation[] annotations, final String className) {
           // All scannotation activity passes through here.
@@ -188,6 +201,12 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
           }
         }
       };
+    db.setScanParameterAnnotations(false);
+    final Set<String> packagesToIgnore = this.getPackagesToIgnore();
+    if (packagesToIgnore != null) {
+      db.setIgnoredPackages(packagesToIgnore.toArray(new String[packagesToIgnore.size()]));
+    }
+
     try {
       db.scanArchives(this.getURLs());
     } catch (final IllegalStateException unwrapMe) {
@@ -203,7 +222,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
   }
 
   public final File getDirectory() {
-    return this.directory;
+    return this.packageDirectoryRoot;
   }
   
   public final void setDirectory(final File directory) {
@@ -219,7 +238,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     if (!directory.canWrite()) {
       throw new IllegalArgumentException(String.format("Cannot write to directory %s", directory));
     }
-    this.directory = directory;
+    this.packageDirectoryRoot = directory;
   }
 
   public final String getInterfacePackageName() {

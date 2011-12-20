@@ -51,6 +51,7 @@ public abstract class JavaSourceGenerator {
 
   protected JavaSourceGenerator() {
     super();
+    this.setEncoding("UTF8");
   }
 
   public String getEncoding() {

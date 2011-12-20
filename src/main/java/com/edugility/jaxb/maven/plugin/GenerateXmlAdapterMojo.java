@@ -27,7 +27,12 @@
  */
 package com.edugility.jaxb.maven.plugin;
 
+import java.io.File;
+import java.io.IOException;
+
 import java.util.List;
+
+import com.edugility.jaxb.XmlAdapterGenerator;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -38,38 +43,62 @@ import org.apache.maven.plugin.logging.Log;
 /**
  * @goal generate-xml-adapter
  * @requiresDependencyResolution test
+ * @phase generate-sources
  */
 public class GenerateXmlAdapterMojo extends AbstractJAXBMojo {
 
-  /**
-   * @parameter default-value="${project.build.sourceEncoding}" expression="${jaxb.encoding}"
+  /*
+   * @parameter property="xmlAdapterGenerator"
    */
-  private String encoding;
+  private XmlAdapterGenerator generator;
 
-  /**
-   * @parameter
+  /*
+   * @parameter default-value="${project.build.directory}/generated-sources/jaxb" property="directory"
    */
-  private String templateResourceName;
-
-  /**
-   * @parameter
-   */
-  private String license;
-
-  /**
-   * @parameter expression="${jaxb.adapterPackage}"
-   */
-  private String adapterPackage;
-
-  /**
-   * @parameter
-   */
-  private List<String> interfaceNames;
+  private File directory;
 
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
     final Log log = this.getLog();
+
+    XmlAdapterGenerator generator = this.getXmlAdapterGenerator();
+    if (generator == null) {
+      generator = new XmlAdapterGenerator();
+    }
+
+    File directory = this.getDirectory();
+    if (directory == null) {
+      directory = generator.getDirectory();
+      if (directory == null) {
+        throw new MojoExecutionException("No directory set", new IllegalStateException("No directory set"));
+      }
+    } else if (!directory.exists()) {
+      if (!directory.mkdirs()) {
+        throw new MojoExecutionException(String.format("Could not create directory path %s", directory), new IOException(String.format("Could not create directory path %s", directory)));
+      }
+    }
+    assert directory.isDirectory();
+    assert directory.canWrite();
+
     
+    
+
+  }
+
+  public XmlAdapterGenerator getXmlAdapterGenerator() {
+    return this.generator;
+  }
+
+  public void setXmlAdapterGenerator(final XmlAdapterGenerator generator) {
+    this.generator = generator;
+  }
+
+  public File getDirectory() {
+    return this.directory;
+  }
+
+  public void setDirectory(final File directory) {
+    this.directory = directory;
   }
 
 }

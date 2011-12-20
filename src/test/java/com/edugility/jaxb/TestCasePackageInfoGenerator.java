@@ -65,7 +65,8 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
     this.generator = new PackageInfoGenerator("com.edugility.jaxb", packageDirectoryRoot);
     this.generator.setAdapterDirectory(adapterDirectory);
 
-    final XmlAdapterGenerator xmlAdapterGenerator = new XmlAdapterGenerator(adapterDirectory);
+    final XmlAdapterGenerator xmlAdapterGenerator = new XmlAdapterGenerator();
+    xmlAdapterGenerator.setDirectory(adapterDirectory);
     this.generator.setXmlAdapterGenerator(xmlAdapterGenerator);
 
     final URL myLocation = this.getClass().getProtectionDomain().getCodeSource().getLocation();

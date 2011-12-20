@@ -70,12 +70,15 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
   private Date generationDate;
 
   public XmlAdapterGenerator(final File directory) {
+    this();
+    this.setDirectory(directory);
+  }
+
+  public XmlAdapterGenerator() {
     super();
     this.setAdapterClassNameTemplate("%s.%sTo%sAdapter");
     this.setSourceFilenameTemplate("%s.java");
-    this.setEncoding("UTF8");
     this.setTemplateResourceName("XmlAdapterGenerator.mvel");
-    this.setDirectory(directory);    
   }
 
   public Date getGenerationDate() {
@@ -195,7 +198,9 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     }
 
     final File directory = this.getDirectory();
-    assert directory != null;
+    if (directory == null) {
+      throw new IllegalStateException("The getDirectory() method returned null");
+    }
 
     final File sourceFile = this.getSourceFile(adapterClassName);
     if (sourceFile == null) {
@@ -258,7 +263,6 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     String generationTimestamp = formatter.format(generationDate);
     assert generationTimestamp != null;
     assert generationTimestamp.length() == 24;
-
     // Convert invalid timezone specifications at the end of the
     // format string from, e.g., 0000 to 00:00
     generationTimestamp = String.format("%s:%s", generationTimestamp.substring(0, 22), generationTimestamp.substring(22));
