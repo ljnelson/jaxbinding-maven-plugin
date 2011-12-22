@@ -330,6 +330,7 @@
   <properties>
 
     <!-- Versions -->
+    <findbugsMavenPluginVersion>2.4.0-SNAPSHOT</findbugsMavenPluginVersion>
     <javaxPersistenceVersion>2.0.3</javaxPersistenceVersion>
     <junitVersion>4.10</junitVersion>
     <mavenAssemblyPluginVersion>2.2.1</mavenAssemblyPluginVersion>
@@ -387,6 +388,13 @@
 
   <reporting>
     <plugins>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>${findbugsMavenPluginVersion}</version>
+      </plugin>
+
       <plugin>
         <artifactId>maven-plugin-plugin</artifactId>
         <version>${mavenPluginPluginVersion}</version>

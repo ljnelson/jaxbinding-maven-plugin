@@ -103,7 +103,7 @@ public abstract class JavaSourceGenerator {
       try {
         stream = templateURL.openStream();
         if (stream != null) {
-          reader = new BufferedReader(new InputStreamReader(stream));
+          reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
           String line = null;
           final StringBuilder sb = new StringBuilder();
           while ((line = reader.readLine()) != null) {

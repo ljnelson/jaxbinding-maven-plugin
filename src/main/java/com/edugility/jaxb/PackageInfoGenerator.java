@@ -33,8 +33,11 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.Serializable;
 
 import java.net.URL;
+
+import java.nio.charset.Charset;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -55,7 +58,9 @@ import org.scannotation.AnnotationDB;
 import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateRuntime;
 
-public class PackageInfoGenerator extends JavaSourceGenerator {
+public class PackageInfoGenerator extends JavaSourceGenerator implements Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   private File packageDirectoryRoot;
 
@@ -255,9 +260,9 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     String encoding = this.getEncoding();
     final OutputStreamWriter ows;
     if (encoding == null) {
-      ows = new OutputStreamWriter(fos);
+      ows = new OutputStreamWriter(fos, Charset.defaultCharset());
     } else {
-      ows = new OutputStreamWriter(fos, encoding);
+      ows = new OutputStreamWriter(fos, Charset.forName(encoding));
     }
     final BufferedWriter bw = new BufferedWriter(ows);
     try {
@@ -299,7 +304,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
   public boolean removeURL(final URL url) {
     boolean returnValue = false;
     if (url != null && !this.urls.isEmpty()) {
-      returnValue = this.urls.remove(returnValue);
+      returnValue = this.urls.remove(url);
     }
     return returnValue;
   }

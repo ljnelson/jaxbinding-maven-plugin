@@ -73,7 +73,6 @@ public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
 
   @Override
   public void execute() throws MojoExecutionException {
-    final Log log = this.getLog();
 
     PackageInfoGenerator generator = this.getPackageInfoGenerator();
     if (generator == null) {

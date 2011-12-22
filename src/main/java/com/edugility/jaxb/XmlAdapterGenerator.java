@@ -36,8 +36,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Serializable;
 
 import java.net.URL;
+
+import java.nio.charset.Charset;
 
 import java.text.SimpleDateFormat;
 
@@ -54,7 +57,9 @@ import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateCompiler;
 import org.mvel2.templates.TemplateRuntime;
 
-public class XmlAdapterGenerator extends JavaSourceGenerator {
+public class XmlAdapterGenerator extends JavaSourceGenerator implements Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   private static final String LS = System.getProperty("line.separator", "\n");
 
@@ -85,11 +90,19 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
   }
 
   public Date getGenerationDate() {
-    return this.generationDate;
+    if (this.generationDate == null) {
+      return new Date();
+    } else {
+      return (Date)this.generationDate.clone();
+    }
   }
 
   public void setGenerationDate(final Date date) {
-    this.generationDate = date;
+    if (date == null) {
+      this.generationDate = new Date();
+    } else {
+      this.generationDate = (Date)date.clone();
+    }
   }
 
   public String getAdapterClassNameTemplate() {
@@ -217,9 +230,9 @@ public class XmlAdapterGenerator extends JavaSourceGenerator {
     String encoding = this.getEncoding();
     final OutputStreamWriter ows;
     if (encoding == null) {
-      ows = new OutputStreamWriter(fos);
+      ows = new OutputStreamWriter(fos, Charset.defaultCharset());
     } else {
-      ows = new OutputStreamWriter(fos, encoding);
+      ows = new OutputStreamWriter(fos, Charset.forName(encoding));
     }
     final BufferedWriter bw = new BufferedWriter(ows);
     try {
