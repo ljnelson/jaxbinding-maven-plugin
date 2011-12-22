@@ -117,6 +117,9 @@ public abstract class AbstractSourceGeneratorTestCase {
 
     options.add(classpath.toString());
 
+    options.add("-d");
+    options.add(this.getDirectory().getAbsolutePath());
+
     final CompilationTask task = compiler.getTask(null, fileManager, null, options, null, fileManager.getJavaFileObjects(files.toArray(new File[files.size()])));
     assertNotNull(task);
 
@@ -129,10 +132,10 @@ public abstract class AbstractSourceGeneratorTestCase {
 
   protected final void deleteAllScratchFiles() throws Exception {
     final File directory = this.getDirectory();
-    this.deleteAllScratchFiles(directory);
+    deleteAllScratchFiles(directory);
   }
 
-  private final void deleteAllScratchFiles(final File directory) {
+  private static final void deleteAllScratchFiles(final File directory) {
     assertNotNull(directory);
     assertTrue(directory.isDirectory());
     assertTrue(directory.canWrite());
@@ -144,7 +147,7 @@ public abstract class AbstractSourceGeneratorTestCase {
       assertNotNull(filename);
       final File f = new File(directory, filename);
       if (f.isDirectory()) {
-        this.deleteAllScratchFiles(f);
+        deleteAllScratchFiles(f);
       }
       assertTrue(String.format("Could not delete %s", f), f.delete());
     }
@@ -152,15 +155,17 @@ public abstract class AbstractSourceGeneratorTestCase {
 
   @After
   public void tearDown() throws Exception {
-    this.deleteAllScratchFiles();
-
-    final File directory = this.getDirectory();
-    assertNotNull(directory);
-    assertTrue(directory.isDirectory());
-    assertTrue(directory.canWrite());
-
-    assertTrue(directory.delete());
-    assertFalse(directory.exists());
+    if (!Boolean.TRUE.equals(Boolean.getBoolean("keep"))) {
+      deleteAllScratchFiles();
+      
+      final File directory = this.getDirectory();
+      assertNotNull(directory);
+      assertTrue(directory.isDirectory());
+      assertTrue(directory.canWrite());
+      
+      assertTrue(directory.delete());
+      assertFalse(directory.exists());
+    }
   }
   
 

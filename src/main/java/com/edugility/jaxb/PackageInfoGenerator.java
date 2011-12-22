@@ -57,8 +57,6 @@ import org.mvel2.templates.TemplateRuntime;
 
 public class PackageInfoGenerator extends JavaSourceGenerator {
 
-  private File adapterDirectory;
-
   private File packageDirectoryRoot;
 
   private XmlAdapterGenerator generator;
@@ -87,14 +85,6 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
 
   public void setPackagesToIgnore(final Set<String> packagesToIgnore) {
     this.packagesToIgnore = packagesToIgnore;
-  }
-
-  public File getAdapterDirectory() {
-    return this.adapterDirectory;
-  }
-
-  public void setAdapterDirectory(final File directory) {
-    this.adapterDirectory = directory;
   }
 
   public void generate() throws IOException {
@@ -165,7 +155,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
             assert className.equals(this.cf.getName());
             assert !this.cf.isInterface();
 
-            final String interfacePackage = getInterfacePackageName();
+            final String interfacePackage = getInterfacePackage();
             assert interfacePackage != null;
 
             for (final Annotation a : annotations) {
@@ -221,7 +211,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     this.generatePackageInfo(adapterInfo);
   }
 
-  public final File getDirectory() {
+  public final File getPackageDirectoryRoot() {
     return this.packageDirectoryRoot;
   }
   
@@ -241,7 +231,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     this.packageDirectoryRoot = directory;
   }
 
-  public final String getInterfacePackageName() {
+  public final String getInterfacePackage() {
     return this.interfacePackage;
   }
 
@@ -256,7 +246,7 @@ public class PackageInfoGenerator extends JavaSourceGenerator {
     final String source = (String)TemplateRuntime.execute(compiledTemplate, parameters);
     assert source != null;
 
-    final File directory = this.getDirectory();
+    final File directory = this.getPackageDirectoryRoot();
     assert directory != null;
 
     final File sourceFile = new File(directory, "package-info.java");

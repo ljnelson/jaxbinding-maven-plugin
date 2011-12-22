@@ -29,10 +29,14 @@ package com.edugility.jaxb;
 
 import java.io.File;
 
+import java.net.URL;
+import java.net.URLClassLoader;
+
 import java.nio.charset.Charset;
 
 import java.lang.management.ManagementFactory;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import javax.tools.DiagnosticCollector;
@@ -41,6 +45,8 @@ import javax.tools.JavaFileObject;
 import javax.tools.ToolProvider;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
+
+import javax.xml.bind.annotation.adapters.XmlAdapter;
 
 import org.junit.After;
 import org.junit.Before;
@@ -77,6 +83,9 @@ public class TestCaseXmlAdapterGenerator extends AbstractSourceGeneratorTestCase
   public void testGenerate() throws Exception {
     this.generator.generate("com.edugility.jaxb", "com.edugility.jaxb.Person", "com.edugility.jaxb.PersonImplementation");
     this.compile(this.getDirectory());
+    final URLClassLoader urlClassLoader = new URLClassLoader(new URL[] { this.getDirectory().toURI().toURL() });
+    final Class<?> adapterClass = urlClassLoader.loadClass("com.edugility.jaxb.PersonToPersonImplementationAdapter");
+    assertNotNull(adapterClass);
   }
 
 }

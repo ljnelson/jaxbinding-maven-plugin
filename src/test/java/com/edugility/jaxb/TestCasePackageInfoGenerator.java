@@ -30,6 +30,7 @@ package com.edugility.jaxb;
 import java.io.File;
 
 import java.net.URL;
+import java.net.URLClassLoader;
 
 import java.lang.management.ManagementFactory;
 
@@ -41,6 +42,10 @@ import javax.tools.JavaFileObject;
 import javax.tools.ToolProvider;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
+
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
 
 import org.junit.After;
 import org.junit.Before;
@@ -63,7 +68,6 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
     packageDirectoryRoot.deleteOnExit();
 
     this.generator = new PackageInfoGenerator("com.edugility.jaxb", packageDirectoryRoot);
-    this.generator.setAdapterDirectory(adapterDirectory);
 
     final XmlAdapterGenerator xmlAdapterGenerator = new XmlAdapterGenerator();
     xmlAdapterGenerator.setDirectory(adapterDirectory);
@@ -80,7 +84,10 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
   public File getDirectory() {
     File directory = null;
     if (this.generator != null) {
-      directory = this.generator.getAdapterDirectory();
+      final XmlAdapterGenerator xmlAdapterGenerator = this.generator.getXmlAdapterGenerator();
+      if (xmlAdapterGenerator != null) {
+        directory = xmlAdapterGenerator.getDirectory();
+      }
     }
     return directory;
   }
@@ -88,7 +95,19 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
   @Test
   public void testAll() throws Exception {
     this.generator.generate();
-    this.compile(this.generator.getDirectory(), this.generator.getAdapterDirectory());
+    this.compile(this.generator.getPackageDirectoryRoot(), this.getDirectory());
+    final URLClassLoader urlClassLoader = new URLClassLoader(new URL[] { this.getDirectory().toURI().toURL() });
+    final Class<?> packageInfoClass = urlClassLoader.loadClass("com.edugility.jaxb.package-info");
+    assertNotNull(packageInfoClass);
+    final XmlJavaTypeAdapters xmlJavaTypeAdaptersAnnotation = packageInfoClass.getAnnotation(XmlJavaTypeAdapters.class);
+    assertNotNull(xmlJavaTypeAdaptersAnnotation);
+    final XmlJavaTypeAdapter[] individualAdapters = xmlJavaTypeAdaptersAnnotation.value();
+    assertNotNull(individualAdapters);
+    assertEquals(1, individualAdapters.length);
+    final XmlJavaTypeAdapter adapterAnnotation = individualAdapters[0];
+    assertNotNull(adapterAnnotation);
+    final Class<? extends XmlAdapter> c = adapterAnnotation.value();
+    assertNotNull(c);
   }
 
 }
