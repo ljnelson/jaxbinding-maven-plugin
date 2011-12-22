@@ -64,7 +64,7 @@ public class AbstractImplementationBinder {
    * parameter) is being tested.  This parameter may be {@code null}.
    *
    * @param iface the {@linkplain Class#isInterface() interface} that
-   * the {@link cls} parameter implements that is being tested.  This
+   * the {@code cls} parameter implements that is being tested.  This
    * parameter may be {@code null}.
    *
    * @return {@code true} if {@code iface} should be accepted as a

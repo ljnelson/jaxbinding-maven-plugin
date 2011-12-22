@@ -43,9 +43,12 @@ import java.text.SimpleDateFormat;
 
 import java.util.Collections;
 import java.util.Date;
+import java.util.Formatter; // for javadoc only
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import javax.xml.bind.annotation.adapters.XmlAdapter; // for javadoc only
 
 import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateCompiler;
