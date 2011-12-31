@@ -260,7 +260,7 @@ public class GenerateXmlAdapterMojo extends AbstractJAXBMojo {
 
   /**
    * Sets the name of the package that all generated {@link
-   * XmlAdatper}s will belong to.
+   * XmlAdapter}s will belong to.
    *
    * @param adapterPackage the package; must not be {@code null}
    */

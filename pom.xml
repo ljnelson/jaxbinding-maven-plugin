@@ -321,7 +321,7 @@
     <testResources>
       <testResource>
         <directory>${basedir}/src/test/resources</directory>
-        <filtering>true</filtering>
+        <filtering>false</filtering>
       </testResource>
     </testResources>
 

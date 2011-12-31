@@ -94,20 +94,31 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
 
   @Test
   public void testAll() throws Exception {
-    this.generator.generate();
-    this.compile(this.generator.getPackageDirectoryRoot(), this.getDirectory());
-    final URLClassLoader urlClassLoader = new URLClassLoader(new URL[] { this.getDirectory().toURI().toURL() });
-    final Class<?> packageInfoClass = urlClassLoader.loadClass("com.edugility.jaxb.package-info");
-    assertNotNull(packageInfoClass);
-    final XmlJavaTypeAdapters xmlJavaTypeAdaptersAnnotation = packageInfoClass.getAnnotation(XmlJavaTypeAdapters.class);
-    assertNotNull(xmlJavaTypeAdaptersAnnotation);
-    final XmlJavaTypeAdapter[] individualAdapters = xmlJavaTypeAdaptersAnnotation.value();
-    assertNotNull(individualAdapters);
-    assertEquals(1, individualAdapters.length);
-    final XmlJavaTypeAdapter adapterAnnotation = individualAdapters[0];
-    assertNotNull(adapterAnnotation);
-    final Class<? extends XmlAdapter> c = adapterAnnotation.value();
-    assertNotNull(c);
+    // TODO: temporarily move test-classes/com/edugility/jaxb/package-info.class
+    final File packageDirectory = new File(this.getTestOutputDirectory(), "com/edugility/jaxb");
+    final File packageInfoClassFile = new File(packageDirectory, "package-info.class");
+    assertTrue(packageInfoClassFile.isFile());
+    final File backup = new File(packageDirectory, "package-info.class.bak");
+    assertFalse(backup.exists());
+    assertTrue(packageInfoClassFile.renameTo(backup));
+    try {
+      this.generator.generate();
+      this.compile(this.generator.getPackageDirectoryRoot(), this.getDirectory());
+      final URLClassLoader urlClassLoader = new URLClassLoader(new URL[] { this.getDirectory().toURI().toURL() });
+      final Class<?> packageInfoClass = urlClassLoader.loadClass("com.edugility.jaxb.package-info");
+      assertNotNull(packageInfoClass);
+      final XmlJavaTypeAdapters xmlJavaTypeAdaptersAnnotation = packageInfoClass.getAnnotation(XmlJavaTypeAdapters.class);
+      assertNotNull(xmlJavaTypeAdaptersAnnotation);
+      final XmlJavaTypeAdapter[] individualAdapters = xmlJavaTypeAdaptersAnnotation.value();
+      assertNotNull(individualAdapters);
+      assertEquals(1, individualAdapters.length);
+      final XmlJavaTypeAdapter adapterAnnotation = individualAdapters[0];
+      assertNotNull(adapterAnnotation);
+      final Class<? extends XmlAdapter> c = adapterAnnotation.value();
+      assertNotNull(c);
+    } finally {
+      assertTrue(backup.renameTo(packageInfoClassFile));
+    }
   }
 
 }

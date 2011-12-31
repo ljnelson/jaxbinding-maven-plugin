@@ -72,6 +72,20 @@ public abstract class AbstractSourceGeneratorTestCase {
     return directory;
   }
 
+  public File getBuildDirectory() {
+    final File directory = new File(System.getProperty("maven.project.build.directory", System.getProperty("project.build.directory", "target")));
+    assertTrue(directory.isDirectory());
+    assertTrue(directory.canWrite());
+    return directory;
+  }
+
+  public File getTestOutputDirectory() {
+    final File directory = new File(System.getProperty("maven.project.build.testOutputDirectory", System.getProperty("project.build.testOutputDirectory", "target/test-classes")));
+    assertTrue(directory.isDirectory());
+    assertTrue(directory.canWrite());
+    return directory;
+  }
+
   protected abstract File getDirectory();
 
   protected final void compile(final File... directories) throws Exception {
@@ -85,8 +99,7 @@ public abstract class AbstractSourceGeneratorTestCase {
     final List<String> options = new ArrayList<String>();
     options.add("-classpath");
 
-    final StringBuilder classpath = new StringBuilder(System.getProperty("java.class.path"));
-    classpath.append(File.pathSeparator);
+    final StringBuilder classpath = new StringBuilder();
 
     final List<File> files = new ArrayList<File>();
 
@@ -114,6 +127,8 @@ public abstract class AbstractSourceGeneratorTestCase {
         files.add(file);
       }
     }
+
+    classpath.append(System.getProperty("java.class.path"));
 
     options.add(classpath.toString());
 
