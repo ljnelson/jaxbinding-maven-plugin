@@ -60,7 +60,7 @@ public class TestCasePackageInfoModifier extends ClassLoader {
     bindings.put(Person.class.getName(), AnyTypeAdapter.class.getName());
     modifier.setBindings(bindings);
 
-    final byte[] newClass = modifier.modify(null);
+    final byte[] newClass = modifier.modify();
     assertNotNull(newClass);
     assertTrue(newClass.length > 0);
 
@@ -82,12 +82,11 @@ public class TestCasePackageInfoModifier extends ClassLoader {
     final XmlJavaTypeAdapters adaptersAnnotation = (XmlJavaTypeAdapters)a;
     final XmlJavaTypeAdapter[] adapters = adaptersAnnotation.value();
     assertNotNull(adapters);
-    for (final XmlJavaTypeAdapter adapter : adapters) {
-      assertNotNull(adapter);
-      assertEquals(Person.class, adapter.type());
-      System.out.println("*** huh? " + adapter.value());
-      
-    }
+    assertEquals(1, adapters.length);
+    final XmlJavaTypeAdapter adapter = adapters[0];
+    assertNotNull(adapter);
+    assertEquals(Person.class, adapter.type());
+    assertEquals(AnyTypeAdapter.class, adapter.value());
 
   }
 

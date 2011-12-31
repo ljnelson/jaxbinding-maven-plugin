@@ -40,13 +40,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.bind.annotation.adapters.XmlAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
+
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.NotFoundException;
 
 import javassist.bytecode.AnnotationsAttribute;
 import javassist.bytecode.ClassFile;
@@ -56,11 +61,7 @@ import javassist.bytecode.annotation.Annotation;
 import javassist.bytecode.annotation.AnnotationMemberValue;
 import javassist.bytecode.annotation.ArrayMemberValue;
 import javassist.bytecode.annotation.ClassMemberValue;
-
-import javassist.CtClass;
-import javassist.ClassPool;
-import javassist.NotFoundException;
-import javassist.CannotCompileException;
+import javassist.bytecode.annotation.MemberValue;
 
 public class PackageInfoModifier {
 
@@ -83,32 +84,15 @@ public class PackageInfoModifier {
   /**
    * @todo Not sure of the parameter; might be better to return a {@code byte[]}.
    */
-  public byte[] modify(final OutputStream stream) throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
+  public byte[] modify() throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
     byte[] returnValue = null;
     final String pkg = this.getPackage();
     if (pkg != null) {
-      final URL packageInfoResource = this.getResource(String.format("%s/package-info.class", pkg.replace(".", "/")));
-      if (packageInfoResource != null) {
-        final ClassPool classPool = ClassPool.getDefault();
-        final CtClass packageInfoCtClass = classPool.get(String.format("%s.package-info", pkg));
-        assert packageInfoCtClass != null;
+      final CtClass packageInfoCtClass = ClassPool.getDefault().getOrNull(String.format("%s.package-info", pkg));
+      if (packageInfoCtClass != null) {
         this.addXmlJavaTypeAdapters(packageInfoCtClass);
-        returnValue = packageInfoCtClass.toBytecode();
-
         assert assertModifiedClassIsOK(packageInfoCtClass);
-
-        if (stream != null) {
-          final DataOutputStream dos;
-          if (stream instanceof BufferedOutputStream) {
-            dos = new DataOutputStream(stream);
-          } else if (stream instanceof DataOutputStream) {
-            dos = (DataOutputStream)stream;
-          } else {
-            dos = new DataOutputStream(new BufferedOutputStream(stream));
-          }
-          packageInfoCtClass.toBytecode(dos);
-          dos.flush();
-        }
+        returnValue = packageInfoCtClass.toBytecode();
       }
     }
     return returnValue;
@@ -153,7 +137,6 @@ public class PackageInfoModifier {
       final CtClass xmlJavaTypeAdaptersCtClass = classPool.get(XmlJavaTypeAdapters.class.getName());
       assert xmlJavaTypeAdaptersCtClass != null;
       adaptersAnnotation = new Annotation(constantPool, xmlJavaTypeAdaptersCtClass);
-      annotationsAttribute.addAnnotation(adaptersAnnotation);
     } else if (adaptersAnnotation.getMemberValue("value") == null) {
       final ArrayMemberValue amv = new ArrayMemberValue(constantPool);
       amv.setValue(new AnnotationMemberValue[0]);
@@ -162,6 +145,8 @@ public class PackageInfoModifier {
     assert adaptersAnnotation != null;
     assert adaptersAnnotation.getMemberValue("value") != null;
 
+    this.addXmlJavaTypeAdapters(adaptersAnnotation, constantPool);
+
     /*
      * You would think this line would be required ONLY in the case
      * where the annotation itself was not found.  But you actually
@@ -169,10 +154,15 @@ public class PackageInfoModifier {
      * cases.  This doesn't make any sense.  See
      * http://stackoverflow.com/questions/8689156/why-does-javassist-insist-on-looking-for-a-default-annotation-value-when-one-is/8689214#8689214
      * for details.
+     *
+     * Additionally, you must re-add the annotation as the last
+     * operation here in all cases.  Otherwise the changes made by the
+     * addXmlJavaTypeAdapters() method above are not actually made
+     * permanent.
      */
     annotationsAttribute.addAnnotation(adaptersAnnotation);
 
-    this.addXmlJavaTypeAdapters(adaptersAnnotation, constantPool);
+
 
     assert assertAnnotationsOK(packageInfoClass);
 
@@ -215,39 +205,64 @@ public class PackageInfoModifier {
 
         ArrayMemberValue adaptersHolder = (ArrayMemberValue)adaptersAnnotation.getMemberValue("value");
 
-        // Build a Map indexing existing 
-        final Map<String, Annotation> existingAnnotationMap = new HashMap<String, Annotation>();
+        // Build a Map indexing existing @XmlJavaTypeAdapter
+        // annotations by the types that they govern.  First create an
+        // array of the existing @XmlJavaTypeAdapter annotations.
+        // This is more difficult than it should be; hence the copious
+        // boilerplate below.
+
         final AnnotationMemberValue[] existingAdapterHolders;
         if (adaptersHolder == null) {
           existingAdapterHolders = null;
         } else {
-          existingAdapterHolders = (AnnotationMemberValue[])adaptersHolder.getValue();
+          final MemberValue[] rawMemberValue = adaptersHolder.getValue();
+          if (rawMemberValue == null || rawMemberValue.length <= 0) {
+            existingAdapterHolders = null;
+          } else {
+            existingAdapterHolders = new AnnotationMemberValue[rawMemberValue.length];
+            for (int i = 0; i < rawMemberValue.length; i++) {
+              final MemberValue mv = rawMemberValue[i];
+              assert mv instanceof AnnotationMemberValue;
+              existingAdapterHolders[i] = (AnnotationMemberValue)mv;
+            }
+          }
         }
+
+        // Loop through the existing @XmlJavaTypeAdapter annotations
+        // and store them in a map indexed by the names of the types
+        // they govern.
+        final Map<String, Annotation> existingAnnotationMap = new HashMap<String, Annotation>();
         if (existingAdapterHolders != null && existingAdapterHolders.length > 0) {
           for (final AnnotationMemberValue existingAdapterHolder : existingAdapterHolders) {
             if (existingAdapterHolder != null) {
               final Annotation value = existingAdapterHolder.getValue();
               if (value != null) {
-                assert value instanceof XmlJavaTypeAdapter;
+                assert XmlJavaTypeAdapter.class.getName().equals(value.getTypeName());
                 final ClassMemberValue typeHolder = (ClassMemberValue)value.getMemberValue("type");
-                assert typeHolder != null;
-                final String interfaceTypeName = typeHolder.getValue();
-                assert interfaceTypeName != null;
-                existingAnnotationMap.put(interfaceTypeName, value);
+                if (typeHolder != null) {
+                  final String interfaceTypeName = typeHolder.getValue();
+                  assert interfaceTypeName != null;
+                  existingAnnotationMap.put(interfaceTypeName, value);
+                }
               }
             }
           }
         }
 
         final List<AnnotationMemberValue> xmlJavaTypeAdapterValueElements = new ArrayList<AnnotationMemberValue>();
-
         for (final Entry<String, String> entry : bindingEntries) {
           if (entry != null) {            
             final String adapterClassName = entry.getValue();
             if (adapterClassName != null) {
               returnValue = true;
+
               final String typeName = entry.getKey();
-              assert typeName != null; // required by contract
+              if (typeName == null) {
+                // An @XmlAdapter annotation is supposed to have a
+                // type() attribute.  If it does not, there's nothing
+                // we can do.
+                continue;
+              }
 
               Annotation adapterAnnotation = existingAnnotationMap.get(typeName);
               if (adapterAnnotation == null) {
