@@ -34,8 +34,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import java.net.URL;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,7 +42,6 @@ import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Set;
 
-import javax.xml.bind.annotation.adapters.XmlAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
 
@@ -81,138 +78,105 @@ public class PackageInfoModifier {
     this.pkg = pkg;
   }
 
-  public byte[] generate() throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
+  public byte[] generate() throws CannotCompileException, IOException, NotFoundException {
     byte[] returnValue = null;
     final String pkg = this.getPackage();
-    if (pkg != null) {
-      final String packageInfoClassName = String.format("%s.package-info", pkg);
-      ClassPool classPool = this.getClassPool(packageInfoClassName);
-      if (classPool == null) {
-        classPool = ClassPool.getDefault();
-      }
-      assert classPool != null;
-      CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
-      if (packageInfoCtClass == null) {
-        packageInfoCtClass = classPool.makeClass(packageInfoClassName);
-        assert packageInfoCtClass != null;
-
-        // Add AnnotationsAttribue
-        final ClassFile packageInfoClassFile = packageInfoCtClass.getClassFile();
-        assert packageInfoClassFile != null;
-
-        final AnnotationsAttribute annotationsAttribute = new AnnotationsAttribute(packageInfoClassFile.getConstPool(), AnnotationsAttribute.visibleTag);
-        packageInfoClassFile.addAttribute(annotationsAttribute);
-
-        this.addXmlJavaTypeAdapters(packageInfoCtClass);
-        assert assertModifiedClassIsOK(packageInfoCtClass);
-        returnValue = packageInfoCtClass.toBytecode();
-      } else {
-        returnValue = this.modify(packageInfoCtClass);
-      }
+    if (pkg == null) {
+      throw new IllegalStateException(String.format("%s#getPackage() == null", this.getClass().getName()));
     }
+
+    final String packageInfoClassName = String.format("%s.package-info", pkg);
+
+    ClassPool classPool = this.getClassPool(packageInfoClassName);
+    if (classPool == null) {
+      classPool = ClassPool.getDefault();
+    }
+    assert classPool != null;
+
+    CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
+    if (packageInfoCtClass == null) {      
+      packageInfoCtClass = classPool.makeClass(packageInfoClassName);
+      assert packageInfoCtClass != null;
+    }
+
+    returnValue = this.modify(packageInfoCtClass);
+
     return returnValue;
   }
 
   /**
-   * @todo Not sure of the parameter; might be better to return a {@code byte[]}.
+   * Modifies the supplied 
    */
-  public byte[] modify() throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
-    byte[] returnValue = null;
-    final String pkg = this.getPackage();
-    if (pkg != null) {
-      final String packageInfoClassName = String.format("%s.package-info", pkg);
-      ClassPool classPool = this.getClassPool(packageInfoClassName);
-      if (classPool == null) {
-        classPool = ClassPool.getDefault();
-      }
-      assert classPool != null;
-      final CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
-      if (packageInfoCtClass != null) {
-        returnValue = this.modify(packageInfoCtClass);
-      }
+  private final byte[] modify(final CtClass packageInfoCtClass) throws CannotCompileException, IOException, NotFoundException {
+    if (packageInfoCtClass == null) {
+      throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
     }
+    this.installXmlJavaTypeAdapters(packageInfoCtClass);
+    final byte[] returnValue = packageInfoCtClass.toBytecode();
+    assert returnValue != null;
+    assert returnValue.length > 0;
     return returnValue;
   }
 
-  private final byte[] modify(final CtClass packageInfoCtClass) throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
-    byte[] returnValue = null;
-    if (packageInfoCtClass != null) {
-      this.addXmlJavaTypeAdapters(packageInfoCtClass);
-      assert assertModifiedClassIsOK(packageInfoCtClass);
-      returnValue = packageInfoCtClass.toBytecode();
-    }
-    return returnValue;
-  }
-
-  protected ClassPool getClassPool(final String packageName) {
+  /**
+   * Returns a Javassist {@link ClassPool} that is appropriate for the
+   * supplied class name.
+   *
+   * <p>The default implementation of this method ignores the {@code
+   * className} parameter and returns the return value of {@link
+   * ClassPool#getDefault()}.  For nearly all cases, this is the
+   * correct behavior and this method should not be overridden.</p>
+   *
+   * <p>If overrides of this method opt to return {@code null}, the
+   * return value of {@link ClassPool#getDefault()} will be used
+   * internally instead.</p>
+   *
+   * @param className the class name for which the returned {@link
+   * ClassPool} might be appropriate; may be {@code null} and may
+   * safely be ignored; provided for contextual information only
+   *
+   * @return a {@link ClassPool} instance, or {@code null}
+   *
+   * @see ClassPool
+   */
+  protected ClassPool getClassPool(final String className) {
     return ClassPool.getDefault();
   }
 
-  private static final boolean assertModifiedClassIsOK(final CtClass packageInfoCtClass) throws CannotCompileException {
-    assert packageInfoCtClass != null;
-
-    final ClassLoader classLoader = new ClassLoader() {
-        @Override
-        protected final Class<?> findClass(final String className) throws ClassNotFoundException {
-          if (className != null && className.equals(packageInfoCtClass.getName())) {
-            byte[] classBytes = null;
-            try {
-              classBytes = packageInfoCtClass.toBytecode();
-            } catch (final CannotCompileException kaboom) {
-              throw new ClassNotFoundException(className, kaboom);
-            } catch (final IOException kaboom) {
-              throw new ClassNotFoundException(className, kaboom);
-            }
-            assert classBytes != null;
-            assert classBytes.length > 0;
-            System.out.println("*** frozen? " + packageInfoCtClass.isFrozen());
-            return this.defineClass(className, classBytes, 0, classBytes.length);
-          } else {
-            return super.findClass(className);
-          }
-        }
-
-        @Override
-        protected final Class<?> loadClass(final String className, final boolean resolve) throws ClassNotFoundException {
-          if (className != null && className.equals(packageInfoCtClass.getName())) {
-            final Class<?> c = this.findClass(className);
-            if (resolve) {
-              this.resolveClass(c);
-            }
-            return c;
-          } else {
-            return super.loadClass(className, resolve);
-          }
-        }
-      };
-
-    final Class<?> c = packageInfoCtClass.toClass(classLoader, PackageInfoModifier.class.getProtectionDomain());
-    assert c != null;
-    System.out.println("*** location: " + c.getProtectionDomain().getCodeSource().getLocation());
-
-    final XmlJavaTypeAdapters adapters = c.getAnnotation(XmlJavaTypeAdapters.class);
-    assert adapters != null;
-    
-    final XmlJavaTypeAdapter[] adapterArray = adapters.value();
-
-    return true;
-  }
-
-  private final void addXmlJavaTypeAdapters(final CtClass packageInfoClass) throws ClassNotFoundException, NotFoundException {
-    if (packageInfoClass == null) {
-      throw new IllegalArgumentException("packageInfoClass", new NullPointerException("packageInfoClass"));
+  /**
+   * Installs an {@link XmlJavaTypeAdapters} annotation on the
+   * supplied {@link CtClass}, which must represent {@code
+   * package-info.class}.
+   *
+   * @param packageInfoCtClass the result of calling, e.g., {@link
+   * ClassPool#get(String) ClassPool.get(this.getPackage() +
+   * "package-info")}; must not be {@code null}
+   *
+   * @exception ClassNotFoundException 
+   */
+  private final void installXmlJavaTypeAdapters(final CtClass packageInfoCtClass) throws NotFoundException {
+    if (packageInfoCtClass == null) {
+      throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
     }
-    if (!"package-info".equals(packageInfoClass.getSimpleName())) {
-      throw new IllegalArgumentException("Wrong CtClass: " + packageInfoClass);
+    final String pkg = this.getPackage();
+    if (pkg == null) {
+      throw new IllegalStateException("getPackage() == null");
+    }
+    if (!String.format("%s.package-info", pkg).equals(packageInfoCtClass.getName())) {
+      throw new IllegalArgumentException("Wrong CtClass: " + packageInfoCtClass);
     }
 
-    final ClassFile packageInfoClassFile = packageInfoClass.getClassFile();
+    final ClassFile packageInfoClassFile = packageInfoCtClass.getClassFile();
     assert packageInfoClassFile != null;
 
     final ConstPool constantPool = packageInfoClassFile.getConstPool();
     assert constantPool != null;
 
     AnnotationsAttribute annotationsAttribute = (AnnotationsAttribute)packageInfoClassFile.getAttribute(AnnotationsAttribute.visibleTag);
+    if (annotationsAttribute == null) {
+      annotationsAttribute = new AnnotationsAttribute(constantPool, AnnotationsAttribute.visibleTag);
+      packageInfoClassFile.addAttribute(annotationsAttribute);
+    }
     assert annotationsAttribute != null;
 
     Annotation adaptersAnnotation = annotationsAttribute.getAnnotation(XmlJavaTypeAdapters.class.getName());
@@ -222,7 +186,7 @@ public class PackageInfoModifier {
         classPool = ClassPool.getDefault();
       }
       assert classPool != null;
-      final CtClass xmlJavaTypeAdaptersCtClass = classPool.get(XmlJavaTypeAdapters.class.getName());
+      CtClass xmlJavaTypeAdaptersCtClass = classPool.getOrNull(XmlJavaTypeAdapters.class.getName());
       assert xmlJavaTypeAdaptersCtClass != null;
       adaptersAnnotation = new Annotation(constantPool, xmlJavaTypeAdaptersCtClass);
     } else if (adaptersAnnotation.getMemberValue("value") == null) {
@@ -233,7 +197,7 @@ public class PackageInfoModifier {
     assert adaptersAnnotation != null;
     assert adaptersAnnotation.getMemberValue("value") != null;
 
-    this.addXmlJavaTypeAdapters(adaptersAnnotation, constantPool);
+    this.installXmlJavaTypeAdapters(adaptersAnnotation, constantPool);
 
     /*
      * You would think this line would be required ONLY in the case
@@ -245,42 +209,43 @@ public class PackageInfoModifier {
      *
      * Additionally, you must re-add the annotation as the last
      * operation here in all cases.  Otherwise the changes made by the
-     * addXmlJavaTypeAdapters() method above are not actually made
+     * installXmlJavaTypeAdapters() method above are not actually made
      * permanent.
      */
     annotationsAttribute.addAnnotation(adaptersAnnotation);
 
-
-
-    assert assertAnnotationsOK(packageInfoClass);
-
   }
 
-  private static final boolean assertAnnotationsOK(final CtClass packageInfoClass) throws ClassNotFoundException {
-
-    final List<Object> annotations = java.util.Arrays.asList(packageInfoClass.getAnnotations());
-    for (final Object a : annotations) {
-      System.out.println("*** class annotation: " + a);
-      System.out.println("    ...of type: " + a.getClass());
-      System.out.println("    ...assignable to java.lang.annotation.Annotation? " + java.lang.annotation.Annotation.class.isInstance(a));
-
-      if (a instanceof XmlJavaTypeAdapters) {
-        final XmlJavaTypeAdapters x = (XmlJavaTypeAdapters)a;
-        System.out.println("    ...value: " + java.util.Arrays.asList(x.value()));
-      }
-    }
-
-    System.out.println("*** class annotations: " + java.util.Arrays.asList(packageInfoClass.getAnnotations()));
-    return true;
-  }
-
-  private final boolean addXmlJavaTypeAdapters(final Annotation adaptersAnnotation, final ConstPool constantPool) throws ClassNotFoundException, NotFoundException {
+  /**
+   * Given a Javassist {@link Annotation} representing the {@code
+   * @}{@link XmlJavaTypeAdapters} annotation, does whatever is
+   * necessary to make such an {@link Annotation} contain an array of
+   * {@link AnnotationMemberValue} objects, each of which represents
+   * an {@link XmlJavaTypeAdapter} annotation that has been specified
+   * in accordance with the rules represented by the return value of
+   * the {@link #getBindings()} method.
+   *
+   * @param adaptersAnnotation a non-{@code null} Javassist {@link
+   * Annotation} representation of the {@code @}{@link
+   * XmlJavaTypeAdapters} annotation
+   *
+   * @param constantPool a {@link ConstPool} instance for use in
+   * constructing new {@link Annotation} instances; Javassist
+   * documentation does not specify whether {@code null} is a
+   * permitted value or not
+   *
+   * @exception NotFoundException in extremely rare situations when a
+   * JDK class cannot be located, usually due to {@link ClassLoader}
+   * problems
+   */
+  private final boolean installXmlJavaTypeAdapters(final Annotation adaptersAnnotation, final ConstPool constantPool) throws NotFoundException {
     if (adaptersAnnotation == null) {
       throw new IllegalArgumentException("adaptersAnnotation", new NullPointerException("adaptersAnnotation"));
     }
     if (!XmlJavaTypeAdapters.class.getName().equals(adaptersAnnotation.getTypeName())) {
       throw new IllegalArgumentException("Wrong annotation: " + adaptersAnnotation.getTypeName());
     }
+
     boolean returnValue = false;
     
     Map<String, String> bindings = this.getBindings();
@@ -294,56 +259,15 @@ public class PackageInfoModifier {
         }
         assert classPool != null;
 
+        ArrayMemberValue adaptersHolder = (ArrayMemberValue)adaptersAnnotation.getMemberValue("value");
+
+        final Map<String, Annotation> existingAnnotationMap = getExistingXmlJavaTypeAdapters(adaptersHolder);        
+
+        final List<AnnotationMemberValue> adapters = new ArrayList<AnnotationMemberValue>();
+
         final CtClass xmlJavaTypeAdapterCtClass = classPool.get(XmlJavaTypeAdapter.class.getName());
         assert xmlJavaTypeAdapterCtClass != null;
 
-        ArrayMemberValue adaptersHolder = (ArrayMemberValue)adaptersAnnotation.getMemberValue("value");
-
-        // Build a Map indexing existing @XmlJavaTypeAdapter
-        // annotations by the types that they govern.  First create an
-        // array of the existing @XmlJavaTypeAdapter annotations.
-        // This is more difficult than it should be; hence the copious
-        // boilerplate below.
-
-        final AnnotationMemberValue[] existingAdapterHolders;
-        if (adaptersHolder == null) {
-          existingAdapterHolders = null;
-        } else {
-          final MemberValue[] rawMemberValue = adaptersHolder.getValue();
-          if (rawMemberValue == null || rawMemberValue.length <= 0) {
-            existingAdapterHolders = null;
-          } else {
-            existingAdapterHolders = new AnnotationMemberValue[rawMemberValue.length];
-            for (int i = 0; i < rawMemberValue.length; i++) {
-              final MemberValue mv = rawMemberValue[i];
-              assert mv instanceof AnnotationMemberValue;
-              existingAdapterHolders[i] = (AnnotationMemberValue)mv;
-            }
-          }
-        }
-
-        // Loop through the existing @XmlJavaTypeAdapter annotations
-        // and store them in a map indexed by the names of the types
-        // they govern.
-        final Map<String, Annotation> existingAnnotationMap = new HashMap<String, Annotation>();
-        if (existingAdapterHolders != null && existingAdapterHolders.length > 0) {
-          for (final AnnotationMemberValue existingAdapterHolder : existingAdapterHolders) {
-            if (existingAdapterHolder != null) {
-              final Annotation value = existingAdapterHolder.getValue();
-              if (value != null) {
-                assert XmlJavaTypeAdapter.class.getName().equals(value.getTypeName());
-                final ClassMemberValue typeHolder = (ClassMemberValue)value.getMemberValue("type");
-                if (typeHolder != null) {
-                  final String interfaceTypeName = typeHolder.getValue();
-                  assert interfaceTypeName != null;
-                  existingAnnotationMap.put(interfaceTypeName, value);
-                }
-              }
-            }
-          }
-        }
-
-        final List<AnnotationMemberValue> xmlJavaTypeAdapterValueElements = new ArrayList<AnnotationMemberValue>();
         for (final Entry<String, String> entry : bindingEntries) {
           if (entry != null) {            
             final String adapterClassName = entry.getValue();
@@ -352,36 +276,39 @@ public class PackageInfoModifier {
 
               final String typeName = entry.getKey();
               if (typeName == null) {
-                // An @XmlAdapter annotation is supposed to have a
-                // type() attribute.  If it does not, there's nothing
-                // we can do.
+                // An @XmlJavaTypeAdapter annotation is supposed to
+                // have a type() attribute.  If it does not, there's
+                // nothing we can do.
                 continue;
               }
 
-              Annotation adapterAnnotation = existingAnnotationMap.get(typeName);
-              if (adapterAnnotation == null) {
-                adapterAnnotation = new Annotation(constantPool, xmlJavaTypeAdapterCtClass);
-                // Set the "type" portion of @XmlJavaTypeAdapter(type = Foo.class, value = FooToFooImplAdapter.class)
-                final ClassMemberValue typeClassHolder = (ClassMemberValue)adapterAnnotation.getMemberValue("type");
-                assert typeClassHolder != null;
-                typeClassHolder.setValue(typeName);
+              // Find or create a new @XmlJavaTypeAdapter with a type() of typeName.
+              Annotation adapterAnnotation = null;
+              if (existingAnnotationMap != null && !existingAnnotationMap.isEmpty()) {
+                adapterAnnotation = existingAnnotationMap.get(typeName);
               }
+              if (adapterAnnotation == null) {
+                adapterAnnotation = this.newXmlJavaTypeAdapter(constantPool, typeName);
+              }
+              assert adapterAnnotation != null;
+              assert XmlJavaTypeAdapter.class.getName().equals(adapterAnnotation.getTypeName());
+              assert typeName.equals(((ClassMemberValue)adapterAnnotation.getMemberValue("type")).getValue());
 
-              // Set the "value" portion of @XmlJavaTypeAdapter(type = Foo.class, value = FooToFooImplAdapter.class)
-              final ClassMemberValue adapterClassHolder = (ClassMemberValue)adapterAnnotation.getMemberValue("value");
-              assert adapterClassHolder != null;
-              adapterClassHolder.setValue(adapterClassName);
+              setXmlAdapter(adapterAnnotation, adapterClassName);
+              assert adapterClassName.equals(((ClassMemberValue)adapterAnnotation.getMemberValue("value")).getValue());
 
-              xmlJavaTypeAdapterValueElements.add(new AnnotationMemberValue(adapterAnnotation, constantPool));
+              // We have just found or created an @XmlJavaTypeAdapter;
+              // add it to the list of such values.  This superset
+              // list will become the new list of @XmlJavaTypeAdapters
+              // on the package-info class.
+              adapters.add(new AnnotationMemberValue(adapterAnnotation, constantPool));
             }
           }
         }
         
         // Take the array of @XmlJavaTypeAdapter instances and set it
         // as the value for @XmlJavaTypeAdapters#value().
-        final AnnotationMemberValue[] values = xmlJavaTypeAdapterValueElements.toArray(new AnnotationMemberValue[xmlJavaTypeAdapterValueElements.size()]);
-        assert values != null;
-        assert values.length == xmlJavaTypeAdapterValueElements.size();
+        final AnnotationMemberValue[] values = adapters.toArray(new AnnotationMemberValue[adapters.size()]);
 
         if (adaptersHolder == null && values.length > 0) {
           adaptersHolder = new ArrayMemberValue(constantPool);
@@ -393,26 +320,145 @@ public class PackageInfoModifier {
     return returnValue;
   }
 
+  private final Annotation newXmlJavaTypeAdapter(final ConstPool constantPool, final String typeName) throws NotFoundException {
+
+    ClassPool classPool = this.getClassPool(XmlJavaTypeAdapter.class.getName());
+    if (classPool == null) {
+      classPool = ClassPool.getDefault();
+    }
+    assert classPool != null;
+
+    final CtClass xmlJavaTypeAdapterCtClass = classPool.getOrNull(XmlJavaTypeAdapter.class.getName());
+    assert xmlJavaTypeAdapterCtClass != null;
+    
+    final Annotation adapterAnnotation = new Annotation(constantPool, xmlJavaTypeAdapterCtClass);
+
+    // Retrieve the "holder" for the type() annotation attribute
+    // ("Foo.class" in the following sample:
+    //
+    //  @XmlJavaTypeAdapter(type = Foo.class, value = FooToFooImplAdapter.class)
+    //
+    final ClassMemberValue typeClassHolder = (ClassMemberValue)adapterAnnotation.getMemberValue("type");
+
+    // (Because @XmlJavaTypeAdapter is a JDK-supplied class, and
+    // Javassist is just reading it, we are guaranteed that the type()
+    // annotation attribute will be modeled in Javassist.)
+    assert typeClassHolder != null;
+
+    // Set the holder's value, thus installing the annotation's type()
+    // value.
+    typeClassHolder.setValue(typeName);
+
+    return adapterAnnotation;
+  }
+
+  private static final void setXmlAdapter(final Annotation adapterAnnotation, final String adapterClassName) {
+    if (adapterClassName == null) {
+      throw new IllegalArgumentException("adapterClassName", new NullPointerException("adapterClassName"));
+    }
+    if (adapterAnnotation == null) {
+      throw new IllegalArgumentException("adapterAnnotation", new NullPointerException("adapterAnnotation"));
+    }
+    if (!XmlJavaTypeAdapter.class.getName().equals(adapterAnnotation.getTypeName())) {
+      throw new IllegalArgumentException("adapterAnnotation does not represent " + XmlJavaTypeAdapter.class.getName());
+    }
+
+    // Retrieve the "holder" for the value() annotation
+    // attribute ("FooToFooImplAdapter.class" in the
+    // following sample:
+    // 
+    //   @XmlJavaTypeAdapter(type = Foo.class, value = FooToFooImplAdapter.class)
+    //
+    final ClassMemberValue adapterClassHolder = (ClassMemberValue)adapterAnnotation.getMemberValue("value");
+
+    // (Because @XmlJavaTypeAdapter is a JDK-supplied class,
+    // and Javassist is just reading it, we are guaranteed
+    // that the type() annotation attribute will be modeled
+    // in Javassist.)
+    assert adapterClassHolder != null;
+
+    // Set the holder's value, thus installing the
+    // annotation's value() value.
+    adapterClassHolder.setValue(adapterClassName);
+  }
+
+  /**
+   * A narrow-purpose helper method that accepts an {@link
+   * ArrayMemberValue} parameter whose value is (semantically) the
+   * return value of the {@link XmlJavaTypeAdapters#value()}
+   * annotation attribute, and returns a {@link Map} of {@link
+   * Annotation} objects representing {@link XmlJavaTypeAdapter}
+   * annotations indexed by the {@linkplain XmlJavaTypeAdapter#type()
+   * types} that each of them governs.
+   *
+   * <p>This method never returns {@code null}.</p>
+   *
+   * @param adaptersHolder the {@link ArrayMemberValue} that resulted
+   * from calling {@link Annotation#getArrayMemberValue()
+   * Annotation#getArrayMemberValue("value")} on an {@link Annotation}
+   * that is Javassist's representation of the {@link
+   * XmlJavaTypeAdapters} annotation.  This parameter may be {@code
+   * null}.
+   *
+   * @return a {@link Map} of {@link Annotation} objects representing
+   * {@link XmlJavaTypeAdapter} annotations indexed by the {@linkplain
+   * XmlJavaTypeAdapter#type() types} that each of them governs; never
+   * {@code null}
+   */
+  private static final Map<String, Annotation> getExistingXmlJavaTypeAdapters(final ArrayMemberValue adaptersHolder) {
+    // Build a Map indexing existing @XmlJavaTypeAdapter annotations
+    // by the types that they govern.  First create an array of the
+    // existing @XmlJavaTypeAdapter annotations.  This is more
+    // difficult than it should be; hence the copious boilerplate
+    // below.
+    
+    final List<AnnotationMemberValue> existingAdapterHolders;
+    if (adaptersHolder == null) {
+      existingAdapterHolders = null;
+    } else {
+      final MemberValue[] rawMemberValue = adaptersHolder.getValue();
+      if (rawMemberValue == null || rawMemberValue.length <= 0) {
+        existingAdapterHolders = null;
+      } else {
+        existingAdapterHolders = new ArrayList<AnnotationMemberValue>();
+        for (final MemberValue mv : rawMemberValue) {
+          if (mv instanceof AnnotationMemberValue) {
+            existingAdapterHolders.add((AnnotationMemberValue)mv);
+          }
+        }
+      }
+    }
+      
+    // Loop through the existing @XmlJavaTypeAdapter annotations and
+    // store them in a map indexed by the names of the types they
+    // govern.
+    final Map<String, Annotation> xmlJavaTypeAdapters = new HashMap<String, Annotation>();
+    if (existingAdapterHolders != null && !existingAdapterHolders.isEmpty()) {
+      for (final AnnotationMemberValue existingAdapterHolder : existingAdapterHolders) {
+        if (existingAdapterHolder != null) {
+          final Annotation xmlJavaTypeAdapter = existingAdapterHolder.getValue();
+          if (xmlJavaTypeAdapter != null && XmlJavaTypeAdapter.class.getName().equals(xmlJavaTypeAdapter.getTypeName())) {
+            final ClassMemberValue typeHolder = (ClassMemberValue)xmlJavaTypeAdapter.getMemberValue("type");
+            if (typeHolder != null) {
+              final String interfaceTypeName = typeHolder.getValue();
+              if (interfaceTypeName != null) {
+                xmlJavaTypeAdapters.put(interfaceTypeName, xmlJavaTypeAdapter);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return xmlJavaTypeAdapters;
+  }
+
   public Map<String, String> getBindings() {
     return this.bindings;
   }
 
   public void setBindings(final Map<String, String> bindings) {
     this.bindings = bindings;
-  }
-
-  public URL getResource(final String name) {
-    URL url = null;
-    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    if (loader == null) {
-      loader = this.getClass().getClassLoader();
-    }
-    if (loader == null) {
-      url = ClassLoader.getSystemResource(name);
-    } else {
-      url = loader.getResource(name);
-    }
-    return url;
   }
 
 }

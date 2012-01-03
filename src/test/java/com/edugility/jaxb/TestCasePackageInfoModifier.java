@@ -121,7 +121,7 @@ public class TestCasePackageInfoModifier {
   @Test
   public void testModification() throws Exception {
 
-    final byte[] newClass = modifier.modify();
+    final byte[] newClass = modifier.generate();
     assertNotNull(newClass);
     assertTrue(newClass.length > 0);
 
