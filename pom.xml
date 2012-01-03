@@ -366,7 +366,7 @@
 
     <!-- maven-javadoc-plugin properties -->
     <detectLinks>false</detectLinks>
-    <links>http://download.oracle.com/javaee/6/api/,http://maven.apache.org/maven-plugin-api/apidocs/,http://maven.apache.org/maven-model/apidocs/,http://plexus.codehaus.org/plexus-containers/plexus-container-default/apidocs/,http://plexus.codehaus.org/plexus-utils/apidocs/,http://scannotation.sourceforge.net/apidocs/</links>
+    <links>http://download.oracle.com/javaee/6/api/,http://maven.apache.org/maven-plugin-api/apidocs/,http://maven.apache.org/maven-model/apidocs/,http://plexus.codehaus.org/plexus-containers/plexus-container-default/apidocs/,http://plexus.codehaus.org/plexus-utils/apidocs/,http://scannotation.sourceforge.net/apidocs/,http://www.csg.is.titech.ac.jp/~chiba/javassist/html/</links>
     <show>private</show>
     <sourcetab>2</sourcetab>
     <stylesheet>maven</stylesheet>

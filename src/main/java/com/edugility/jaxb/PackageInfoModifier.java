@@ -81,6 +81,38 @@ public class PackageInfoModifier {
     this.pkg = pkg;
   }
 
+  public byte[] generate() throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
+    byte[] returnValue = null;
+    final String pkg = this.getPackage();
+    if (pkg != null) {
+      final String packageInfoClassName = String.format("%s.package-info", pkg);
+      ClassPool classPool = this.getClassPool(packageInfoClassName);
+      if (classPool == null) {
+        classPool = ClassPool.getDefault();
+      }
+      assert classPool != null;
+      CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
+      if (packageInfoCtClass == null) {
+        packageInfoCtClass = classPool.makeClass(packageInfoClassName);
+        assert packageInfoCtClass != null;
+
+        // Add AnnotationsAttribue
+        final ClassFile packageInfoClassFile = packageInfoCtClass.getClassFile();
+        assert packageInfoClassFile != null;
+
+        final AnnotationsAttribute annotationsAttribute = new AnnotationsAttribute(packageInfoClassFile.getConstPool(), AnnotationsAttribute.visibleTag);
+        packageInfoClassFile.addAttribute(annotationsAttribute);
+
+        this.addXmlJavaTypeAdapters(packageInfoCtClass);
+        assert assertModifiedClassIsOK(packageInfoCtClass);
+        returnValue = packageInfoCtClass.toBytecode();
+      } else {
+        returnValue = this.modify(packageInfoCtClass);
+      }
+    }
+    return returnValue;
+  }
+
   /**
    * @todo Not sure of the parameter; might be better to return a {@code byte[]}.
    */
@@ -88,19 +120,73 @@ public class PackageInfoModifier {
     byte[] returnValue = null;
     final String pkg = this.getPackage();
     if (pkg != null) {
-      final CtClass packageInfoCtClass = ClassPool.getDefault().getOrNull(String.format("%s.package-info", pkg));
+      final String packageInfoClassName = String.format("%s.package-info", pkg);
+      ClassPool classPool = this.getClassPool(packageInfoClassName);
+      if (classPool == null) {
+        classPool = ClassPool.getDefault();
+      }
+      assert classPool != null;
+      final CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
       if (packageInfoCtClass != null) {
-        this.addXmlJavaTypeAdapters(packageInfoCtClass);
-        assert assertModifiedClassIsOK(packageInfoCtClass);
-        returnValue = packageInfoCtClass.toBytecode();
+        returnValue = this.modify(packageInfoCtClass);
       }
     }
     return returnValue;
   }
 
+  private final byte[] modify(final CtClass packageInfoCtClass) throws CannotCompileException, ClassNotFoundException, IOException, NotFoundException {
+    byte[] returnValue = null;
+    if (packageInfoCtClass != null) {
+      this.addXmlJavaTypeAdapters(packageInfoCtClass);
+      assert assertModifiedClassIsOK(packageInfoCtClass);
+      returnValue = packageInfoCtClass.toBytecode();
+    }
+    return returnValue;
+  }
+
+  protected ClassPool getClassPool(final String packageName) {
+    return ClassPool.getDefault();
+  }
+
   private static final boolean assertModifiedClassIsOK(final CtClass packageInfoCtClass) throws CannotCompileException {
     assert packageInfoCtClass != null;
-    final Class<?> c = packageInfoCtClass.toClass();
+
+    final ClassLoader classLoader = new ClassLoader() {
+        @Override
+        protected final Class<?> findClass(final String className) throws ClassNotFoundException {
+          if (className != null && className.equals(packageInfoCtClass.getName())) {
+            byte[] classBytes = null;
+            try {
+              classBytes = packageInfoCtClass.toBytecode();
+            } catch (final CannotCompileException kaboom) {
+              throw new ClassNotFoundException(className, kaboom);
+            } catch (final IOException kaboom) {
+              throw new ClassNotFoundException(className, kaboom);
+            }
+            assert classBytes != null;
+            assert classBytes.length > 0;
+            System.out.println("*** frozen? " + packageInfoCtClass.isFrozen());
+            return this.defineClass(className, classBytes, 0, classBytes.length);
+          } else {
+            return super.findClass(className);
+          }
+        }
+
+        @Override
+        protected final Class<?> loadClass(final String className, final boolean resolve) throws ClassNotFoundException {
+          if (className != null && className.equals(packageInfoCtClass.getName())) {
+            final Class<?> c = this.findClass(className);
+            if (resolve) {
+              this.resolveClass(c);
+            }
+            return c;
+          } else {
+            return super.loadClass(className, resolve);
+          }
+        }
+      };
+
+    final Class<?> c = packageInfoCtClass.toClass(classLoader, PackageInfoModifier.class.getProtectionDomain());
     assert c != null;
     System.out.println("*** location: " + c.getProtectionDomain().getCodeSource().getLocation());
 
@@ -120,9 +206,6 @@ public class PackageInfoModifier {
       throw new IllegalArgumentException("Wrong CtClass: " + packageInfoClass);
     }
 
-    final ClassPool classPool = ClassPool.getDefault();
-    assert classPool != null;
-    
     final ClassFile packageInfoClassFile = packageInfoClass.getClassFile();
     assert packageInfoClassFile != null;
 
@@ -134,6 +217,11 @@ public class PackageInfoModifier {
 
     Annotation adaptersAnnotation = annotationsAttribute.getAnnotation(XmlJavaTypeAdapters.class.getName());
     if (adaptersAnnotation == null) {
+      ClassPool classPool = this.getClassPool(XmlJavaTypeAdapters.class.getName());
+      if (classPool == null) {
+        classPool = ClassPool.getDefault();
+      }
+      assert classPool != null;
       final CtClass xmlJavaTypeAdaptersCtClass = classPool.get(XmlJavaTypeAdapters.class.getName());
       assert xmlJavaTypeAdaptersCtClass != null;
       adaptersAnnotation = new Annotation(constantPool, xmlJavaTypeAdaptersCtClass);
@@ -200,7 +288,13 @@ public class PackageInfoModifier {
       final Set<Entry<String, String>> bindingEntries = bindings.entrySet();
       if (bindingEntries != null && !bindingEntries.isEmpty()) {
 
-        final CtClass xmlJavaTypeAdapterCtClass = ClassPool.getDefault().get(XmlJavaTypeAdapter.class.getName());
+        ClassPool classPool = this.getClassPool(XmlJavaTypeAdapter.class.getName());
+        if (classPool == null) {
+          classPool = ClassPool.getDefault();
+        }
+        assert classPool != null;
+
+        final CtClass xmlJavaTypeAdapterCtClass = classPool.get(XmlJavaTypeAdapter.class.getName());
         assert xmlJavaTypeAdapterCtClass != null;
 
         ArrayMemberValue adaptersHolder = (ArrayMemberValue)adaptersAnnotation.getMemberValue("value");

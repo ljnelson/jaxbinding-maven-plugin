@@ -42,31 +42,91 @@ import java.util.Map;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
 
+import javassist.ClassPool;
+import javassist.CtClass;
+
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-public class TestCasePackageInfoModifier extends ClassLoader {
+public class TestCasePackageInfoModifier {
+
+  private PackageInfoModifier modifier;
 
   public TestCasePackageInfoModifier() {
     super();
   }
 
-  @Test
-  public void testModification() throws Exception {
-    final PackageInfoModifier modifier = new PackageInfoModifier();
-    modifier.setPackage("com.edugility.jaxb");
+  @Before
+  public void setUp() throws Exception {
+    this.modifier = new PackageInfoModifier();
+    this.modifier.setPackage("com.edugility.jaxb");
     final Map<String, String> bindings = new HashMap<String, String>();
     bindings.put(Person.class.getName(), AnyTypeAdapter.class.getName());
-    modifier.setBindings(bindings);
+    this.modifier.setBindings(bindings);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    final CtClass packageInfoCtClass = ClassPool.getDefault().get("com.edugility.jaxb.package-info");
+    assertNotNull(packageInfoCtClass);
+    packageInfoCtClass.detach();
+  }
+  
+  public File getTestOutputDirectory() {
+    final File directory = new File(System.getProperty("maven.project.build.testOutputDirectory", System.getProperty("project.build.testOutputDirectory", "target/test-classes")));
+    assertTrue(directory.isDirectory());
+    assertTrue(directory.canWrite());
+    return directory;
+  }
+
+  @Test
+  public void testGeneration() throws Exception {
+    final File packageDirectory = new File(this.getTestOutputDirectory(), "com/edugility/jaxb");
+    final File packageInfoClassFile = new File(packageDirectory, "package-info.class");
+    assertTrue(packageInfoClassFile.isFile());
+    final File backup = new File(packageDirectory, "package-info.class.bak");
+    assertFalse(backup.exists());
+    assertTrue(packageInfoClassFile.renameTo(backup));
+    try {
+      final byte[] newClass = this.modifier.generate();
+      assertNotNull(newClass);
+      assertTrue(newClass.length > 0);
+
+      final Class<?> c = new ClassDefiner().define(newClass);
+      assertNotNull(c);
+
+      final Annotation[] annotations = c.getAnnotations();
+      assertNotNull(annotations);
+      assertTrue(annotations.length == 1);
+      
+      Annotation a = annotations[0];
+      assertNotNull(a);
+      assertTrue(a instanceof XmlJavaTypeAdapters);
+      final XmlJavaTypeAdapters adaptersAnnotation = (XmlJavaTypeAdapters)a;
+      final XmlJavaTypeAdapter[] adapters = adaptersAnnotation.value();
+      assertNotNull(adapters);
+      assertEquals(1, adapters.length);
+      final XmlJavaTypeAdapter adapter = adapters[0];
+      assertNotNull(adapter);
+      assertEquals(Person.class, adapter.type());
+      assertEquals(AnyTypeAdapter.class, adapter.value());
+    } finally {
+      assertTrue(backup.renameTo(packageInfoClassFile));
+    }
+  }
+
+  @Test
+  public void testModification() throws Exception {
 
     final byte[] newClass = modifier.modify();
     assertNotNull(newClass);
     assertTrue(newClass.length > 0);
 
-    final Class<?> c = this.defineClass("com.edugility.jaxb.package-info", newClass, 0, newClass.length);
+    final Class<?> c = new ClassDefiner().define(newClass);
     assertNotNull(c);
-    this.resolveClass(c);
 
     final Annotation[] annotations = c.getAnnotations();
     assertNotNull(annotations);
@@ -87,6 +147,17 @@ public class TestCasePackageInfoModifier extends ClassLoader {
     assertNotNull(adapter);
     assertEquals(Person.class, adapter.type());
     assertEquals(AnyTypeAdapter.class, adapter.value());
+
+  }
+
+  private static final class ClassDefiner extends ClassLoader {
+
+    public final Class<?> define(final byte[] classBytes) throws Exception {
+      final Class<?> c = this.defineClass("com.edugility.jaxb.package-info", classBytes, 0, classBytes.length);
+      assertNotNull(c);
+      this.resolveClass(c);
+      return c;
+    }
 
   }
 

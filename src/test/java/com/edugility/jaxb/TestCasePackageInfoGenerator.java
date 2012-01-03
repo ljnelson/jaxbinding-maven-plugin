@@ -94,7 +94,6 @@ public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCas
 
   @Test
   public void testAll() throws Exception {
-    // TODO: temporarily move test-classes/com/edugility/jaxb/package-info.class
     final File packageDirectory = new File(this.getTestOutputDirectory(), "com/edugility/jaxb");
     final File packageInfoClassFile = new File(packageDirectory, "package-info.class");
     assertTrue(packageInfoClassFile.isFile());
