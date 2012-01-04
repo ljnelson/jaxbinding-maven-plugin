@@ -32,7 +32,7 @@ import java.io.IOException;
 
 import java.util.Set;
 
-import com.edugility.jaxb.PackageInfoGenerator;
+import com.edugility.jaxb.PackageInfoModifier;
 
 import org.apache.maven.plugin.MojoExecutionException;
 
@@ -41,7 +41,7 @@ import org.apache.maven.plugin.logging.Log;
 /**
  * @goal generate-package-info
  *
- * @phase generate-sources
+ * @phase process-classes
  *
  * @requiresDependencyResolution test
  */
@@ -63,9 +63,9 @@ public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
   private Set<String> packagesToIgnore;
 
   /**
-   * @parameter property="packageInfoGenerator"
+   * @parameter property="packageInfoModifier"
    */
-  private PackageInfoGenerator packageInfoGenerator;
+  private PackageInfoModifier packageInfoModifier;
 
   public GeneratePackageInfoMojo() {
     super();
@@ -74,14 +74,9 @@ public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
   @Override
   public void execute() throws MojoExecutionException {
 
-    PackageInfoGenerator generator = this.getPackageInfoGenerator();
-    if (generator == null) {
-      generator = new PackageInfoGenerator(this.getInterfacePackage(), this.getPackageDirectoryRoot());
-    }
-
-    final Set<String> packagesToIgnore = this.getPackagesToIgnore();
-    if (packagesToIgnore != null) {
-      generator.setPackagesToIgnore(packagesToIgnore);
+    PackageInfoModifier modifier = this.getPackageInfoModifier();
+    if (modifier == null) {
+      modifier = new PackageInfoModifier(this.getInterfacePackage());
     }
 
     
@@ -119,12 +114,12 @@ public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
     this.packagesToIgnore = packagesToIgnore;
   }
 
-  public PackageInfoGenerator getPackageInfoGenerator() {
-    return this.packageInfoGenerator;
+  public PackageInfoModifier getPackageInfoModifier() {
+    return this.packageInfoModifier;
   }
 
-  public void setPackageInfoGenerator(final PackageInfoGenerator generator) {
-    this.packageInfoGenerator = generator;
+  public void setPackageInfoModifier(final PackageInfoModifier modifier) {
+    this.packageInfoModifier = modifier;
   }
 
 }

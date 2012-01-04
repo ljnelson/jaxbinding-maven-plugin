@@ -39,6 +39,8 @@ import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.Map;
 
+import java.util.logging.Level;
+
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
 
@@ -62,7 +64,8 @@ public class TestCasePackageInfoModifier {
   @Before
   public void setUp() throws Exception {
     this.modifier = new PackageInfoModifier();
-    this.modifier.setPackage("com.edugility.jaxb");
+    assertNotNull(this.modifier.logger);
+    this.modifier.logger.setLevel(Level.FINER);
     final Map<String, String> bindings = new HashMap<String, String>();
     bindings.put(Person.class.getName(), AnyTypeAdapter.class.getName());
     this.modifier.setBindings(bindings);
@@ -84,50 +87,59 @@ public class TestCasePackageInfoModifier {
 
   @Test
   public void testGeneration() throws Exception {
-    final File packageDirectory = new File(this.getTestOutputDirectory(), "com/edugility/jaxb");
-    final File packageInfoClassFile = new File(packageDirectory, "package-info.class");
-    assertTrue(packageInfoClassFile.isFile());
-    final File backup = new File(packageDirectory, "package-info.class.bak");
-    assertFalse(backup.exists());
-    assertTrue(packageInfoClassFile.renameTo(backup));
-    try {
-      final byte[] newClass = this.modifier.generate();
-      assertNotNull(newClass);
-      assertTrue(newClass.length > 0);
+    this.modifier.setPackage("com.edugility.jaxb.generation");
 
-      final Class<?> c = new ClassDefiner().define(newClass);
-      assertNotNull(c);
+    final PackageInfoModifier.Modification mod = this.modifier.modify();
+    assertNotNull(mod);
+    assertEquals(PackageInfoModifier.Modification.Kind.GENERATED, mod.getKind());
 
-      final Annotation[] annotations = c.getAnnotations();
-      assertNotNull(annotations);
-      assertTrue(annotations.length == 1);
-      
-      Annotation a = annotations[0];
-      assertNotNull(a);
-      assertTrue(a instanceof XmlJavaTypeAdapters);
-      final XmlJavaTypeAdapters adaptersAnnotation = (XmlJavaTypeAdapters)a;
-      final XmlJavaTypeAdapter[] adapters = adaptersAnnotation.value();
-      assertNotNull(adapters);
-      assertEquals(1, adapters.length);
-      final XmlJavaTypeAdapter adapter = adapters[0];
-      assertNotNull(adapter);
-      assertEquals(Person.class, adapter.type());
-      assertEquals(AnyTypeAdapter.class, adapter.value());
-    } finally {
-      assertTrue(backup.renameTo(packageInfoClassFile));
-    }
+    final byte[] newClass = mod.toByteArray();
+    validateOneAnnotation(newClass);
   }
 
   @Test
-  public void testModification() throws Exception {
+  public void testPackageInfoWithNoXmlJavaTypeAdaptersAnnotation() throws Exception {
+    this.modifier.setPackage("com.edugility.jaxb.noxmljavatypeadaptersannotation");
 
-    final byte[] newClass = modifier.generate();
+    final PackageInfoModifier.Modification mod = modifier.modify();
+    assertNotNull(mod);
+    assertEquals(PackageInfoModifier.Modification.Kind.MODIFIED, mod.getKind());
+
+    final byte[] newClass = mod.toByteArray();
+    validateTwoAnnotations(newClass);
+  }
+
+  private final void validateOneAnnotation(final byte[] newClass) throws Exception {
     assertNotNull(newClass);
     assertTrue(newClass.length > 0);
 
-    final Class<?> c = new ClassDefiner().define(newClass);
+    final Class<?> c = new ClassDefiner().define(this.modifier.getPackage(), newClass);
     assertNotNull(c);
 
+    final Annotation[] annotations = c.getAnnotations();
+    assertNotNull(annotations);
+    assertTrue(annotations.length == 1);
+
+    Annotation a = annotations[0];
+    assertNotNull(a);
+    assertTrue(a instanceof XmlJavaTypeAdapters);
+    final XmlJavaTypeAdapters adaptersAnnotation = (XmlJavaTypeAdapters)a;
+    final XmlJavaTypeAdapter[] adapters = adaptersAnnotation.value();
+    assertNotNull(adapters);
+    assertEquals(1, adapters.length);
+    final XmlJavaTypeAdapter adapter = adapters[0];
+    assertNotNull(adapter);
+    assertEquals(Person.class, adapter.type());
+    assertEquals(AnyTypeAdapter.class, adapter.value());
+  }
+
+  private final void validateTwoAnnotations(final byte[] newClass) throws Exception {
+    assertNotNull(newClass);
+    assertTrue(newClass.length > 0);
+
+    final Class<?> c = new ClassDefiner().define(this.modifier.getPackage(), newClass);
+    assertNotNull(c);
+    
     final Annotation[] annotations = c.getAnnotations();
     assertNotNull(annotations);
     assertTrue(annotations.length == 2);
@@ -147,13 +159,47 @@ public class TestCasePackageInfoModifier {
     assertNotNull(adapter);
     assertEquals(Person.class, adapter.type());
     assertEquals(AnyTypeAdapter.class, adapter.value());
+  }
 
+  @Test
+  public void testPackageInfoWithEmptyXmlJavaTypeAdaptersAnnotation() throws Exception {
+    this.modifier.setPackage("com.edugility.jaxb.emptyxmljavatypeadaptersannotation");
+
+    final PackageInfoModifier.Modification mod = modifier.modify();
+    assertNotNull(mod);
+    assertEquals(PackageInfoModifier.Modification.Kind.MODIFIED, mod.getKind());
+
+    final byte[] newClass = mod.toByteArray();
+    validateOneAnnotation(newClass);
+  }
+
+  @Test
+  public void testPackageInfoWithUnmodifiedXmlJavaTypeAdaptersAnnotationWithValue() throws Exception {
+    this.modifier.setPackage("com.edugility.jaxb.unmodifiedxmljavatypeadaptersannotation.withvalue");
+
+    final PackageInfoModifier.Modification mod = modifier.modify();
+    assertNotNull(mod);
+    assertEquals(PackageInfoModifier.Modification.Kind.UNMODIFIED, mod.getKind());
+
+    final byte[] newClass = mod.toByteArray();
+    validateOneAnnotation(newClass);
+  }
+
+  @Test
+  public void testModification() throws Exception {
+    this.modifier.setPackage("com.edugility.jaxb");
+
+    final PackageInfoModifier.Modification mod = modifier.modify();
+    assertNotNull(mod);
+    assertEquals(PackageInfoModifier.Modification.Kind.MODIFIED, mod.getKind());
+    final byte[] newClass = mod.toByteArray();
+    validateTwoAnnotations(newClass);
   }
 
   private static final class ClassDefiner extends ClassLoader {
 
-    public final Class<?> define(final byte[] classBytes) throws Exception {
-      final Class<?> c = this.defineClass("com.edugility.jaxb.package-info", classBytes, 0, classBytes.length);
+    public final Class<?> define(final String packageName, final byte[] classBytes) throws Exception {
+      final Class<?> c = this.defineClass(String.format("%s.package-info", packageName), classBytes, 0, classBytes.length);
       assertNotNull(c);
       this.resolveClass(c);
       return c;

@@ -33,6 +33,9 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serializable;
+
+import java.security.ProtectionDomain;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +44,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Map;
 import java.util.Set;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapters;
@@ -62,12 +68,27 @@ import javassist.bytecode.annotation.MemberValue;
 
 public class PackageInfoModifier {
 
+  protected transient Logger logger;
+
   private Map<String, String> bindings;
 
   private String pkg;
 
   public PackageInfoModifier() {
     super();
+    this.logger = this.createLogger();
+    if (this.logger == null) {
+      this.logger = Logger.getLogger(this.getClass().getName());
+    }
+  }
+
+  public PackageInfoModifier(final String pkg) {
+    this();
+    this.setPackage(pkg);
+  }
+
+  protected Logger createLogger() {
+    return Logger.getLogger(this.getClass().getName());
   }
 
   public String getPackage() {
@@ -76,10 +97,15 @@ public class PackageInfoModifier {
 
   public void setPackage(final String pkg) {
     this.pkg = pkg;
+    if (this.logger != null && this.logger.isLoggable(Level.CONFIG)) {
+      this.logger.log(Level.CONFIG, "Set package to {0}", pkg);
+    }
   }
 
-  public byte[] generate() throws CannotCompileException, IOException, NotFoundException {
-    byte[] returnValue = null;
+  public Modification modify() throws CannotCompileException, IOException, NotFoundException {
+    if (this.logger != null && this.logger.isLoggable(Level.FINER)) {
+      this.logger.entering(this.getClass().getName(), "modify");
+    }
     final String pkg = this.getPackage();
     if (pkg == null) {
       throw new IllegalStateException(String.format("%s#getPackage() == null", this.getClass().getName()));
@@ -93,28 +119,29 @@ public class PackageInfoModifier {
     }
     assert classPool != null;
 
+    Modification.Kind kind = Modification.Kind.UNMODIFIED;
+
     CtClass packageInfoCtClass = classPool.getOrNull(packageInfoClassName);
     if (packageInfoCtClass == null) {      
       packageInfoCtClass = classPool.makeClass(packageInfoClassName);
-      assert packageInfoCtClass != null;
+      kind = Modification.Kind.GENERATED;
     }
-
-    returnValue = this.modify(packageInfoCtClass);
-
-    return returnValue;
-  }
-
-  /**
-   * Modifies the supplied 
-   */
-  private final byte[] modify(final CtClass packageInfoCtClass) throws CannotCompileException, IOException, NotFoundException {
-    if (packageInfoCtClass == null) {
-      throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
+    assert packageInfoCtClass != null;
+    
+    final boolean modified = this.installXmlJavaTypeAdapters(packageInfoCtClass);
+    if (modified && !kind.equals(Modification.Kind.GENERATED)) {
+      kind = Modification.Kind.MODIFIED;
     }
-    this.installXmlJavaTypeAdapters(packageInfoCtClass);
-    final byte[] returnValue = packageInfoCtClass.toBytecode();
-    assert returnValue != null;
-    assert returnValue.length > 0;
+    
+    final byte[] bytes = packageInfoCtClass.toBytecode();
+    assert bytes != null;
+    assert bytes.length > 0;
+
+    final Modification returnValue = new Modification(packageInfoCtClass, kind, bytes);
+
+    if (this.logger != null && this.logger.isLoggable(Level.FINER)) {
+      this.logger.exiting(this.getClass().getName(), "modify", returnValue);
+    }
     return returnValue;
   }
 
@@ -154,7 +181,7 @@ public class PackageInfoModifier {
    *
    * @exception ClassNotFoundException 
    */
-  private final void installXmlJavaTypeAdapters(final CtClass packageInfoCtClass) throws NotFoundException {
+  private final boolean installXmlJavaTypeAdapters(final CtClass packageInfoCtClass) throws NotFoundException {
     if (packageInfoCtClass == null) {
       throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
     }
@@ -166,6 +193,8 @@ public class PackageInfoModifier {
       throw new IllegalArgumentException("Wrong CtClass: " + packageInfoCtClass);
     }
 
+    boolean modified = false;
+
     final ClassFile packageInfoClassFile = packageInfoCtClass.getClassFile();
     assert packageInfoClassFile != null;
 
@@ -176,6 +205,7 @@ public class PackageInfoModifier {
     if (annotationsAttribute == null) {
       annotationsAttribute = new AnnotationsAttribute(constantPool, AnnotationsAttribute.visibleTag);
       packageInfoClassFile.addAttribute(annotationsAttribute);
+      modified = true;
     }
     assert annotationsAttribute != null;
 
@@ -189,17 +219,21 @@ public class PackageInfoModifier {
       CtClass xmlJavaTypeAdaptersCtClass = classPool.getOrNull(XmlJavaTypeAdapters.class.getName());
       assert xmlJavaTypeAdaptersCtClass != null;
       adaptersAnnotation = new Annotation(constantPool, xmlJavaTypeAdaptersCtClass);
+      modified = true;
     } else if (adaptersAnnotation.getMemberValue("value") == null) {
       final ArrayMemberValue amv = new ArrayMemberValue(constantPool);
       amv.setValue(new AnnotationMemberValue[0]);
       adaptersAnnotation.addMemberValue("value", amv);
+      modified = true;
     }
     assert adaptersAnnotation != null;
     assert adaptersAnnotation.getMemberValue("value") != null;
 
-    this.installXmlJavaTypeAdapters(adaptersAnnotation, constantPool);
+    modified = this.installXmlJavaTypeAdapters(adaptersAnnotation, constantPool) || modified;
 
     /*
+     * THIS COMMENT IS UNDER REVISION
+     *
      * You would think this line would be required ONLY in the case
      * where the annotation itself was not found.  But you actually
      * have to add it to its containing AnnotationsAttribute in ALL
@@ -212,8 +246,11 @@ public class PackageInfoModifier {
      * installXmlJavaTypeAdapters() method above are not actually made
      * permanent.
      */
-    annotationsAttribute.addAnnotation(adaptersAnnotation);
+    if (modified) {
+      annotationsAttribute.addAnnotation(adaptersAnnotation);
+    }
 
+    return modified;
   }
 
   /**
@@ -239,6 +276,9 @@ public class PackageInfoModifier {
    * problems
    */
   private final boolean installXmlJavaTypeAdapters(final Annotation adaptersAnnotation, final ConstPool constantPool) throws NotFoundException {
+    if (this.logger != null && this.logger.isLoggable(Level.FINER)) {
+      this.logger.entering(this.getClass().getName(), "installXmlJavaTypeAdapters", new Object[] { adaptersAnnotation, constantPool });
+    }
     if (adaptersAnnotation == null) {
       throw new IllegalArgumentException("adaptersAnnotation", new NullPointerException("adaptersAnnotation"));
     }
@@ -246,8 +286,8 @@ public class PackageInfoModifier {
       throw new IllegalArgumentException("Wrong annotation: " + adaptersAnnotation.getTypeName());
     }
 
-    boolean returnValue = false;
-    
+    boolean modified = false;
+
     Map<String, String> bindings = this.getBindings();
     if (bindings != null && !bindings.isEmpty()) {
       final Set<Entry<String, String>> bindingEntries = bindings.entrySet();
@@ -272,8 +312,7 @@ public class PackageInfoModifier {
           if (entry != null) {            
             final String adapterClassName = entry.getValue();
             if (adapterClassName != null) {
-              returnValue = true;
-
+              
               final String typeName = entry.getKey();
               if (typeName == null) {
                 // An @XmlJavaTypeAdapter annotation is supposed to
@@ -287,14 +326,27 @@ public class PackageInfoModifier {
               if (existingAnnotationMap != null && !existingAnnotationMap.isEmpty()) {
                 adapterAnnotation = existingAnnotationMap.get(typeName);
               }
+              
+              if (adapterAnnotation != null) {
+                // Preexisting
+                final ClassMemberValue v = (ClassMemberValue)adapterAnnotation.getMemberValue("value");
+                assert v != null;
+                final String existingClassName = v.getValue();
+                if (adapterClassName.equals(existingClassName)) {
+                  // The annotation is already correctly specified
+                  continue;
+                }
+              }
+
               if (adapterAnnotation == null) {
                 adapterAnnotation = this.newXmlJavaTypeAdapter(constantPool, typeName);
+                modified = true;
               }
               assert adapterAnnotation != null;
               assert XmlJavaTypeAdapter.class.getName().equals(adapterAnnotation.getTypeName());
               assert typeName.equals(((ClassMemberValue)adapterAnnotation.getMemberValue("type")).getValue());
 
-              setXmlAdapter(adapterAnnotation, adapterClassName);
+              modified = setXmlAdapter(adapterAnnotation, adapterClassName) || modified;
               assert adapterClassName.equals(((ClassMemberValue)adapterAnnotation.getMemberValue("value")).getValue());
 
               // We have just found or created an @XmlJavaTypeAdapter;
@@ -310,14 +362,17 @@ public class PackageInfoModifier {
         // as the value for @XmlJavaTypeAdapters#value().
         final AnnotationMemberValue[] values = adapters.toArray(new AnnotationMemberValue[adapters.size()]);
 
-        if (adaptersHolder == null && values.length > 0) {
+        if (adaptersHolder == null) {
           adaptersHolder = new ArrayMemberValue(constantPool);
           adaptersAnnotation.addMemberValue("value", adaptersHolder);
+          modified = true;
         }
+        assert values != null;
         adaptersHolder.setValue(values);
+
       }
     }
-    return returnValue;
+    return modified;
   }
 
   private final Annotation newXmlJavaTypeAdapter(final ConstPool constantPool, final String typeName) throws NotFoundException {
@@ -352,7 +407,7 @@ public class PackageInfoModifier {
     return adapterAnnotation;
   }
 
-  private static final void setXmlAdapter(final Annotation adapterAnnotation, final String adapterClassName) {
+  private static final boolean setXmlAdapter(final Annotation adapterAnnotation, final String adapterClassName) {
     if (adapterClassName == null) {
       throw new IllegalArgumentException("adapterClassName", new NullPointerException("adapterClassName"));
     }
@@ -377,9 +432,16 @@ public class PackageInfoModifier {
     // in Javassist.)
     assert adapterClassHolder != null;
 
+    final String old = adapterClassHolder.getValue();
+
     // Set the holder's value, thus installing the
     // annotation's value() value.
     adapterClassHolder.setValue(adapterClassName);
+
+    if (old == null) {
+      return adapterClassName != null;
+    }
+    return !old.equals(adapterClassName);
   }
 
   /**
@@ -459,6 +521,61 @@ public class PackageInfoModifier {
 
   public void setBindings(final Map<String, String> bindings) {
     this.bindings = bindings;
+  }
+
+  public static final class Modification implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public static enum Kind {
+      UNMODIFIED, GENERATED, MODIFIED;
+    }
+
+    private final CtClass packageInfoCtClass;
+
+    private final byte[] bytes;
+
+    private final Kind kind;
+
+    private Modification(final CtClass packageInfoCtClass, final Kind kind, final byte[] bytes) {
+      super();
+      if (packageInfoCtClass == null) {
+        throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
+      }
+      if (!"package-info".equals(packageInfoCtClass.getSimpleName())) {
+        throw new IllegalArgumentException("packageInfoCtClass must be a package-info class: " + packageInfoCtClass);
+      }
+      this.packageInfoCtClass = packageInfoCtClass;
+      assert packageInfoCtClass.isFrozen();
+      if (kind == null) {
+        this.kind = Kind.MODIFIED;
+      } else {
+        this.kind = kind;
+      }
+      if (bytes == null) {
+        this.bytes = new byte[0];
+      } else {
+        this.bytes = bytes;
+      }
+    }
+
+    public final String getPackageName() {
+      final String className = this.packageInfoCtClass.getName();
+      final int lastDotIndex = className.lastIndexOf(".");
+      if (lastDotIndex <= 0) {
+        return "";
+      }
+      return className.substring(0, lastDotIndex);
+    }
+
+    public final Kind getKind() {
+      return this.kind;
+    }
+
+    public final byte[] toByteArray() {
+      return this.bytes;
+    }
+
   }
 
 }
