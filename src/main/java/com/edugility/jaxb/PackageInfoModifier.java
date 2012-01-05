@@ -72,8 +72,6 @@ public class PackageInfoModifier {
 
   private Map<String, String> bindings;
 
-  private String pkg;
-
   public PackageInfoModifier() {
     super();
     this.logger = this.createLogger();
@@ -82,33 +80,16 @@ public class PackageInfoModifier {
     }
   }
 
-  public PackageInfoModifier(final String pkg) {
-    this();
-    this.setPackage(pkg);
-  }
-
   protected Logger createLogger() {
     return Logger.getLogger(this.getClass().getName());
   }
 
-  public String getPackage() {
-    return this.pkg;
-  }
-
-  public void setPackage(final String pkg) {
-    this.pkg = pkg;
-    if (this.logger != null && this.logger.isLoggable(Level.CONFIG)) {
-      this.logger.log(Level.CONFIG, "Set package to {0}", pkg);
-    }
-  }
-
-  public Modification modify() throws CannotCompileException, IOException, NotFoundException {
+  public Modification modify(final String pkg) throws CannotCompileException, IOException, NotFoundException {
     if (this.logger != null && this.logger.isLoggable(Level.FINER)) {
       this.logger.entering(this.getClass().getName(), "modify");
     }
-    final String pkg = this.getPackage();
     if (pkg == null) {
-      throw new IllegalStateException(String.format("%s#getPackage() == null", this.getClass().getName()));
+      throw new IllegalArgumentException("pkg", new NullPointerException("pkg"));
     }
 
     final String packageInfoClassName = String.format("%s.package-info", pkg);
@@ -185,9 +166,9 @@ public class PackageInfoModifier {
     if (packageInfoCtClass == null) {
       throw new IllegalArgumentException("packageInfoCtClass", new NullPointerException("packageInfoCtClass"));
     }
-    final String pkg = this.getPackage();
+    final String pkg = packageInfoCtClass.getPackageName();
     if (pkg == null) {
-      throw new IllegalStateException("getPackage() == null");
+      throw new IllegalArgumentException("packageInfoCtClass", new IllegalStateException("packageInfoCtClass.getPackage() == null"));
     }
     if (!String.format("%s.package-info", pkg).equals(packageInfoCtClass.getName())) {
       throw new IllegalArgumentException("Wrong CtClass: " + packageInfoCtClass);
@@ -560,12 +541,7 @@ public class PackageInfoModifier {
     }
 
     public final String getPackageName() {
-      final String className = this.packageInfoCtClass.getName();
-      final int lastDotIndex = className.lastIndexOf(".");
-      if (lastDotIndex <= 0) {
-        return "";
-      }
-      return className.substring(0, lastDotIndex);
+      return this.packageInfoCtClass.getPackageName();
     }
 
     public final Kind getKind() {

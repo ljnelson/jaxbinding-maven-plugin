@@ -76,7 +76,7 @@ public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
 
     PackageInfoModifier modifier = this.getPackageInfoModifier();
     if (modifier == null) {
-      modifier = new PackageInfoModifier(this.getInterfacePackage());
+      modifier = new PackageInfoModifier();
     }
 
     

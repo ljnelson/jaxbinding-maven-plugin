@@ -2,8 +2,12 @@ package com.edugility.jaxb;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
+import java.io.Serializable;
+
 @XmlRootElement
-public class PersonImplementation implements Person {
+public class PersonImplementation implements Person, Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   private int age;
 
