@@ -58,6 +58,10 @@ import org.scannotation.AnnotationDB;
 import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateRuntime;
 
+/**
+ * @deprecated Use the {@link PackageInfoModifier} class instead.
+ */
+@Deprecated
 public class PackageInfoGenerator extends JavaSourceGenerator implements Serializable {
 
   private static final long serialVersionUID = 1L;

@@ -1,6 +1,6 @@
 /* -*- mode: Java; c-basic-offset: 2; indent-tabs-mode: nil -*-
  *
- * Copyright (c) 2010-2011 Edugility LLC.
+ * Copyright (c) 2010-2012 Edugility LLC.
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -29,16 +29,15 @@ package com.edugility.jaxb;
 
 import javax.xml.bind.annotation.adapters.XmlAdapter;
 
-public class UniversalXmlAdapter<V, B> extends XmlAdapter<V, B> {
+public abstract class UniversalXmlAdapter<B, V extends B> extends XmlAdapter<V, B> {
 
   public UniversalXmlAdapter() {
     super();
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public final B unmarshal(final V value) {
-    return (B)value;
+    return value;
   }
   
   @Override

@@ -53,6 +53,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
+@Deprecated
 public class TestCasePackageInfoGenerator extends AbstractSourceGeneratorTestCase {
 
   private PackageInfoGenerator generator;

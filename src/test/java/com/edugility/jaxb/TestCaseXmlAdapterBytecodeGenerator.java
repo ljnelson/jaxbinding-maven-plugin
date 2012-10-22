@@ -72,8 +72,8 @@ public class TestCaseXmlAdapterBytecodeGenerator {
     final Type[] actualTypeArguments = adapterSuperType.getActualTypeArguments();
     assertNotNull(actualTypeArguments);
     assertEquals(2, actualTypeArguments.length);
-    assertSame(PersonImplementation.class, actualTypeArguments[0]);
-    assertSame(Person.class, actualTypeArguments[1]);
+    assertSame(Person.class, actualTypeArguments[0]);
+    assertSame(PersonImplementation.class, actualTypeArguments[1]);
 
     final UniversalXmlAdapter adapter = (UniversalXmlAdapter)adapterClass.newInstance();
     assertNotNull(adapter);

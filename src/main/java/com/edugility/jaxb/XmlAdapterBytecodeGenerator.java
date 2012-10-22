@@ -132,7 +132,7 @@ public class XmlAdapterBytecodeGenerator {
 
     assert adapterClassFile.getAttribute(SignatureAttribute.tag) == null; // we just created it after all
 
-    final SignatureAttribute adapterClassSignatureAttribute = new SignatureAttribute(adapterClassFile.getConstPool(), String.format("L%s<L%s;L%s;>;", UniversalXmlAdapter.class.getName().replace('.', '/'), implementationClassName.replace('.', '/'), interfaceClassName.replace('.', '/')));
+    final SignatureAttribute adapterClassSignatureAttribute = new SignatureAttribute(adapterClassFile.getConstPool(), String.format("L%s<L%s;L%s;>;", UniversalXmlAdapter.class.getName().replace('.', '/'), interfaceClassName.replace('.', '/'), implementationClassName.replace('.', '/')));
     adapterClassFile.addAttribute(adapterClassSignatureAttribute);
 
     assert adapterClassFile.getAttribute(SignatureAttribute.tag) != null;
