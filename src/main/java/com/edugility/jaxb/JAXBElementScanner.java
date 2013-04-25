@@ -289,6 +289,12 @@ public class JAXBElementScanner implements Serializable {
       this.regex = regex;
     }
 
+    /**
+     * Returns {@code true} if the supplied {@code interfaceName}
+     * matches the regular expression supplied to this {@link
+     * WhitelistRegexBindingFilter} at construction time; {@code
+     * false} otherwise.
+     */
     @Override
     public boolean accept(final String interfaceName, final String implementationClassName) {
       boolean result = interfaceName != null && implementationClassName != null && this.regex != null;

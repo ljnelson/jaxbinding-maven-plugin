@@ -54,16 +54,26 @@ public class TestCaseXmlAdapterBytecodeGenerator {
 
   @Test
   public void testGenerate() throws Exception {
+
+    // Make the relevant XML adapter class bits.
     final byte[] newClass = this.generator.generate("com.edugility.jaxb.PersonToPersonImplementationAdapter", Person.class, PersonImplementation.class);
     assertNotNull(newClass);
     assertTrue(newClass.length > 0);
 
+    // Turn those class bits into a real Java class.
     final Class<?> adapterClass = new ClassDefiner().define("com.edugility.jaxb.PersonToPersonImplementationAdapter", newClass);
     assertNotNull(adapterClass);
     assertEquals("com.edugility.jaxb.PersonToPersonImplementationAdapter", adapterClass.getName());
     assertTrue(UniversalXmlAdapter.class.isAssignableFrom(adapterClass));
+
+    // Make sure that new class "is a" UniversalXmlAdapter.
     assertSame(UniversalXmlAdapter.class, adapterClass.getSuperclass());
 
+    // Make sure all the generics work right in the new class.
+    // UniversalXmlAdapter is an abstract class, and so when we
+    // subclass it we can get some of the parameterized type
+    // information at runtime.  Test it to make sure it's the right
+    // stuff.
     final Type genericSuperclass = adapterClass.getGenericSuperclass();
     assertNotNull(genericSuperclass);
     assertTrue(genericSuperclass instanceof ParameterizedType);

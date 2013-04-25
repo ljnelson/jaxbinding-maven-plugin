@@ -57,6 +57,7 @@ import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateCompiler;
 import org.mvel2.templates.TemplateRuntime;
 
+@Deprecated
 public class XmlAdapterGenerator extends JavaSourceGenerator implements Serializable {
 
   private static final long serialVersionUID = 1L;

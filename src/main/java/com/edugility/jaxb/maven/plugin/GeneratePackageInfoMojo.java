@@ -44,7 +44,10 @@ import org.apache.maven.plugin.logging.Log;
  * @phase process-classes
  *
  * @requiresDependencyResolution test
+ *
+ * @deprecated
  */
+@Deprecated
 public class GeneratePackageInfoMojo extends AbstractJAXBMojo {
 
   /**
