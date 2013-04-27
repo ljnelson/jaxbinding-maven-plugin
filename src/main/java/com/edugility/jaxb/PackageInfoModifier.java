@@ -146,6 +146,8 @@ public class PackageInfoModifier {
    * @return a {@link ClassPool} instance, or {@code null}
    *
    * @see ClassPool
+   *
+   * @see ClassPool#getDefault()
    */
   protected ClassPool getClassPool(final String className) {
     return ClassPool.getDefault();

@@ -92,7 +92,7 @@ public class XmlAdapterBytecodeGenerator {
     return returnValue;
   }
 
-  public <I, C extends I> byte[] generate(final String adapterClassName, final Class<I> interfaceClass, final Class<C> implementationClass) throws BadBytecode, CannotCompileException, IOException, NotFoundException {
+  public final <I, C extends I> byte[] generate(final String adapterClassName, final Class<I> interfaceClass, final Class<C> implementationClass) throws BadBytecode, CannotCompileException, IOException, NotFoundException {
     if (adapterClassName == null) {
       throw new IllegalArgumentException("adapterClassName", new NullPointerException("adapterClassName"));
     }

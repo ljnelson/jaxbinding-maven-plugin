@@ -49,10 +49,22 @@ import javassist.bytecode.ClassFile;
 
 import org.scannotation.AnnotationDB;
 
+/**
+ * Scans classes looking for JAXB-bindable types that implement interfaces.
+ *
+ * <p>This class helps with fooling JAXB into handling interfaces.
+ * This class can give you a {@link Map} of interface names and the
+ * JAXB-bindable types that implement those interfaces.</p>
+ *
+ * @see XmlAdapterBytecodeGenerator
+ *
+ * @see PackageInfoModifier
+ */
 public class JAXBElementScanner implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
+  @Deprecated
   private XmlAdapterGenerator generator;
 
   private Set<URI> uris;
@@ -73,6 +85,11 @@ public class JAXBElementScanner implements Serializable {
     this.ignoredPackages = ignoredPackages;
   }
 
+  /**
+   * Returns a {@link Map} of implementation class names that are
+   * annotated with JAXB annotations indexed by the interface names
+   * they implement.
+   */
   public Map<String, String> scan() throws IOException {
     final SortedMap<String, String> bindings = new TreeMap<String, String>();
 
@@ -166,12 +183,20 @@ public class JAXBElementScanner implements Serializable {
                     final String implementationClassName = this.cf.getName();
                     if (bindingFilter == null || bindingFilter.accept(interfaceName, implementationClassName)) {
                       atLeastOneInterfaceProcessed = true;
+                      // TODO:
+                      //
+                      // Consider the case where XyzImpl implements
+                      // Xyz and AbcImpl also implements Xyz.
+                      //
+                      // Only Xyz = AbcImpl will be stored.  I THINK
+                      // this is OK but we should check.  Or report.
+                      // Or warn.  Or something.
                       bindings.put(interfaceName, implementationClassName);
                     }
                   }
                 }
                 if (atLeastOneInterfaceProcessed) {
-                  break;
+                  break; // out of the annotation processing loop
                 }
               }
             }
@@ -228,13 +253,21 @@ public class JAXBElementScanner implements Serializable {
     }
   }
 
+  @Deprecated
   public XmlAdapterGenerator getXmlAdapterGenerator() {
     return this.generator;
   }
 
+  @Deprecated
   public void setXmlAdapterGenerator(final XmlAdapterGenerator generator) {
     this.generator = generator;
   }
+
+
+  /*
+   * Inner and nested classes.
+   */
+
 
   public interface BindingFilter {
     
@@ -242,51 +275,74 @@ public class JAXBElementScanner implements Serializable {
 
   }
 
-  public static class BlacklistRegexBindingFilter implements BindingFilter, Serializable {
-    
+
+  public static abstract class AbstractRegexBindingFilter implements BindingFilter, Serializable {
+
     private static final long serialVersionUID = 1L;
 
-    private final Pattern regex;
+    protected final Pattern regex;
 
-    public BlacklistRegexBindingFilter(final String regex) {
+    protected AbstractRegexBindingFilter(final String regex) {
       this(Pattern.compile(regex));
     }
 
-    public BlacklistRegexBindingFilter(final Pattern regex) {
+    protected AbstractRegexBindingFilter(final Pattern regex) {
       super();
       this.regex = regex;
     }
 
+  }
+
+
+  /**
+   * A {@link BindingFilter} that <strong>does not accept</strong> interface names that match
+   * a regular expression.
+   */
+  public static final class BlacklistRegexBindingFilter extends AbstractRegexBindingFilter {
+    
+    private static final long serialVersionUID = 1L;
+
+    public BlacklistRegexBindingFilter(final String regex) {
+      super(regex);
+    }
+
+    public BlacklistRegexBindingFilter(final Pattern regex) {
+      super(regex);
+    }
+
+    /**
+     * Returns {@code true} if the supplied {@code interfaceName} does
+     * <em>not</em> match the regular expression supplied to this
+     * {@link WhitelistRegexBindingFilter} at construction time;
+     * {@code false} otherwise.
+     */
     @Override
-    public boolean accept(final String interfaceName, final String implementationClassName) {
+    public final boolean accept(final String interfaceName, final String implementationClassName) {
       boolean result = interfaceName != null && implementationClassName != null;
-      if (result) {
-        if (regex == null) {
-          result = true;
-        } else {
-          final Matcher matcher = this.regex.matcher(interfaceName);
-          assert matcher != null;
-          result = !matcher.find();
-        }
+      if (result && regex != null) {
+        final Matcher matcher = this.regex.matcher(interfaceName);
+        result = matcher != null && !matcher.find();
       }
       return result;
     }
 
   }
 
-  public static class WhitelistRegexBindingFilter implements BindingFilter, Serializable {
+
+  /**
+   * A {@link BindingFilter} that <strong>accepts</strong> interface names that match
+   * a regular expression.
+   */
+  public static final class WhitelistRegexBindingFilter extends AbstractRegexBindingFilter {
     
     private static final long serialVersionUID = 1L;
 
-    private final Pattern regex;
-
     public WhitelistRegexBindingFilter(final String regex) {
-      this(Pattern.compile(regex));
+      super(regex);
     }
 
     public WhitelistRegexBindingFilter(final Pattern regex) {
-      super();
-      this.regex = regex;
+      super(regex);
     }
 
     /**
@@ -296,12 +352,11 @@ public class JAXBElementScanner implements Serializable {
      * false} otherwise.
      */
     @Override
-    public boolean accept(final String interfaceName, final String implementationClassName) {
+    public final boolean accept(final String interfaceName, final String implementationClassName) {
       boolean result = interfaceName != null && implementationClassName != null && this.regex != null;
       if (result) {
         final Matcher matcher = this.regex.matcher(interfaceName);
-        assert matcher != null;
-        result = matcher.find();
+        result = matcher != null && matcher.find();
       }
       return result;
     }

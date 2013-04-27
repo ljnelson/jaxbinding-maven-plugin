@@ -37,6 +37,7 @@ import java.net.URL;
 import org.mvel2.templates.CompiledTemplate;
 import org.mvel2.templates.TemplateCompiler;
 
+@Deprecated
 public abstract class JavaSourceGenerator {
 
   private static final String LS = System.getProperty("line.separator", "\n");

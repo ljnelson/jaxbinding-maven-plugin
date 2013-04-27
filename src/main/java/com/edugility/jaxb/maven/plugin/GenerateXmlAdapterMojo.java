@@ -38,6 +38,7 @@ import java.util.Set;
 import javax.xml.bind.annotation.adapters.XmlAdapter; // for javadoc only
 
 import com.edugility.jaxb.XmlAdapterGenerator;
+import com.edugility.jaxb.PackageInfoModifier;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -65,7 +66,11 @@ import org.apache.maven.plugin.logging.Log;
  * @see XmlAdapterGenerator
  *
  * @since 1.0-SNAPSHOT
+ *
+ * @deprecated The real class you want to look at right now is {@link
+ * PackageInfoModifier}.
  */
+@Deprecated
 public class GenerateXmlAdapterMojo extends AbstractJAXBMojo {
 
   /**
